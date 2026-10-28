@@ -1,1 +1,543 @@
-# jarvis
+# J.A.R.V.I.S. — голосовой ассистент с управлением Windows
+
+Локальный голосовой ассистент для Windows 10/11. Распознаёт речь в браузере
+(Web Speech API, ru-RU), отправляет команды на Python-backend через WebSocket
+и исполняет их на уровне системы (subprocess / ctypes / pycaw / WMI).
+
+![architecture](https://img.shields.io/badge/architecture-HTTP%2BWS-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+
+## Содержание
+
+1. [Установка](#1-установка)
+2. [Запуск](#2-запуск)
+3. [Список голосовых команд](#3-список-голосовых-команд)
+4. [Опасные команды и как их подтверждать](#4-опасные-команды-и-как-их-подтверждать)
+5. [Логи и аудит](#5-логи-и-аудит)
+6. [Как откатить изменения](#6-как-откатить-изменения)
+7. [Тестирование](#7-тестирование)
+8. [Безопасность](#8-безопасность)
+9. [Архитектура](#9-архитектура)
+10. [⚠️ Риски](#10-️-риски)
+
+---
+
+## 1. Установка
+
+### Требования
+
+- **Windows 10 или 11** (для системных команд: shutdown, volume, brightness, lock).
+- **Python 3.10+** в PATH. Проверить: `python --version`.
+- **Браузер на Chromium** (Chrome / Edge / Yandex / Opera) — только они поддерживают
+  Web Speech API для распознавания речи.
+
+### Установка зависимостей
+
+Скачайте или склонируйте папку `jarvis/`. Затем:
+
+```cmd
+cd path\to\jarvis
+pip install -r requirements.txt
+```
+
+Или просто запустите `Server.bat` — он сам проверит зависимости и установит их
+при первом запуске.
+
+### Структура проекта
+
+```
+jarvis/
+├── backend.py              ← Python HTTP+WS сервер, whitelist команд
+├── jarvis.html             ← UI: реактор, wave, палитра, лог, аудит, модал
+├── shortcuts.json          ← Карта {имя: steam:// | https://}
+├── Server.bat              ← Лаунчер для Windows
+├── requirements.txt        ← Зависимости
+├── pytest.ini              ← Конфиг тестов
+├── README.md               ← Этот файл
+├── jarvis_audit.log        ← Лог команд (создаётся автоматически)
+└── tests/
+    └── test_backend.py      ← 69 тестов (whitelist, WS, security)
+```
+
+---
+
+## 2. Запуск
+
+### Быстрый старт
+
+Дважды кликните по `Server.bat`. Он:
+1. Проверит Python в PATH.
+2. При необходимости установит зависимости.
+3. Запустит `python backend.py --i-understand-the-risks`.
+4. Через 2 секунды откроет браузер на `http://localhost:8000/jarvis.html`.
+
+**Важно:** флаг `--i-understand-the-risks` обязателен. Без него backend откажется
+стартовать. Это защита от случайного запуска (см. раздел [Безопасность](#8-безопасность)).
+
+### Ручной запуск
+
+```cmd
+pip install -r requirements.txt
+python backend.py --i-understand-the-risks
+```
+
+Затем откройте в браузере: `http://localhost:8000/jarvis.html`.
+
+### Альтернативный порт
+
+```cmd
+python backend.py --i-understand-the-risks --port 8080
+```
+
+### Только тесты (без запуска backend)
+
+```cmd
+Server.bat --test
+```
+
+Или:
+
+```cmd
+python -m pytest tests/ -v
+```
+
+### Тесты затем запуск backend
+
+```cmd
+Server.bat --test --run
+```
+
+---
+
+## 3. Список голосовых команд
+
+Распознавание речи работает в **руссом языке** (`ru-RU`). Активация — клик по
+иконке микрофона или нажатие **пробела** (когда фокус не в поле ввода).
+
+### MARVEL-стиль голоса
+
+JARVIS говорит как аутентичный Paul Bettany (Iron Man):
+- **Британский акцент** (en-GB) — приоритет Google UK English Male / Microsoft George / Apple Daniel
+- **Низкий pitch** (0.72–0.80) — глубокий, спокойный тембр
+- **Драматичные паузы** между фразами (180–320 мс в зависимости от контекста)
+- **Pre-filler фразы** — «At once, sir», «Right away, sir» перед основным ответом
+- **Scan-эффект** — низкий нисходящий свип перед важными сообщениями (опасные команды, ошибки)
+- **Динамическая интонация**:
+  - `default` — обычный разговорный темп (rate 0.93, pitch 0.78)
+  - `formal` — официальный доклад (rate 0.90, pitch 0.76)
+  - `alert` — предупреждение (rate 0.95, pitch 0.80, +scan)
+  - `confirmation` — подтверждение (rate 0.95, pitch 0.78)
+  - `danger` — опасная команда (rate 0.85, pitch 0.72, +scan)
+  - `thinking` — обработка (rate 0.88, pitch 0.74)
+  - `boot` — приветствие при старте (rate 0.92, pitch 0.78, +scan)
+  - `error` — извинение об ошибке (rate 0.92, pitch 0.76)
+- **Микро-вариации** pitch/rate между фразами (как живой человек дышит)
+- **Подъём pitch** в конце вопросительных предложений
+- **Замедление** в конце восклицаний
+
+### Голосовые пресеты и примеры фраз
+
+| Тип | EN фраза | RU фраза |
+|-----|----------|----------|
+| Подтверждение | «Done, sir.» / «Complete, sir.» / «As you wished, sir.» | «Готово, сэр.» / «Сделано, сэр.» / «Как приказано, сэр.» |
+| Ошибка | «My apologies, sir, but a complication has arisen.» | «Прошу прощения, сэр, но возникла неполадка.» |
+| Опасность | «Sir, this will require your confirmation.» | «Сэр, это потребует вашего подтверждения.» |
+| Неизвестная команда | «I beg your pardon, sir? I didn't quite catch that.» | «Простите, сэр, я не расслышал команду.» |
+| Boot | «All systems are operational, sir. At your service.» | «Все системы в норме, сэр. Готов к работе.» |
+
+### A. Открытие / запуск
+
+| Фраза | Действие | Backend-команда |
+|-------|----------|-----------------|
+| «открой ютуб» | Открывает YouTube в браузере | `launch_app` |
+| «включи роблокс» | Запускает Roblox через Steam | `launch_app` |
+| «запусти дискорд» | Запускает Discord через Steam | `launch_app` |
+| «включи яндекс музыку» | Открывает music.yandex.ru | `launch_app` |
+| «список программ» | Показывает список ярлыков | (локально в UI) |
+| «открой ссылку https://example.com» | Открывает URL | `open_url` |
+| «открой папку загрузки» | Проводник на `~/Downloads` | `open_explorer` |
+| «покажи файлы в документах» | Список файлов `~/Documents` | `list_dir` |
+
+### B. Системные
+
+| Фраза | Действие |
+|-------|----------|
+| «выключи компьютер» | Shutdown через 60 сек |
+| «выключи компьютер через 5 минут» | Shutdown через 300 сек |
+| «перезагрузи» | Restart через 60 сек |
+| «перезагрузи через 10 минут» | Restart через 600 сек |
+| «отмени выключение» | `shutdown /a` |
+| «спящий режим» / «усни» | SetSuspendState |
+| «заблокируй» | LockWorkStation |
+| «громкость 50» | Установить громкость 50% |
+| «громче» / «тише» | +10 / -10% |
+| «мут» | Переключить mute |
+| «яркость 70» | Установить яркость 70% (через WMI) |
+| «покажи загрузку цп» | CPU% / RAM% / диски |
+| «покажи загрузку памяти» | CPU% / RAM% / диски |
+| «скриншот» | Сохранить скриншот в `~/Pictures/jarvis_*.png` |
+
+### C. Файлы / папки
+
+| Фраза | Действие |
+|-------|----------|
+| «покажи файлы в загрузках» | `list_dir ~/Downloads` |
+| «создай папку мои документы» | `create_folder` |
+| «удали файл old.txt» | `delete_file` (в Корзину через send2trash) |
+
+### D. Медиа / Windows
+
+| Фраза | Действие |
+|-------|----------|
+| «включи музыку» / «пауза» | VK_MEDIA_PLAY_PAUSE |
+| «следующий трек» | VK_MEDIA_NEXT_TRACK |
+| «предыдущий трек» | VK_MEDIA_PREV_TRACK |
+| «сверни всё» | MinimizeAll через Shell.Application |
+| «покажи рабочий стол» | Win+D через keybd_event |
+
+### E. Опасные (требуют подтверждения)
+
+| Фраза | Действие | Маркер |
+|-------|----------|--------|
+| (через текстовый ввод) | Запуск PowerShell-скрипта | `#jarvis-approved` в начале |
+| (через текстовый ввод) | Изменение реестра HKCU\Software\Jarvis\* | только HKCU + Software\Jarvis\ |
+| (через текстовый ввод) | Редактирование текстового файла | только `.txt/.md/.json/...` |
+
+См. [раздел 4](#4-опасные-команды-и-как-их-подтверждать).
+
+### Локальные команды (без backend)
+
+UI также содержит «базу знаний» (15k+ команд):
+- «Столица Германия» → Берлин
+- «Цвет красный» → #FF0000
+- «Язык Python» → ML, скрипты, data science
+- «Квадрат 12» → 144
+- «12 × 15» → 180
+- «123 прописью» → сто двадцать три
+- «100 → римское» → C
+
+Переключение языкового режима — кнопка в шапке «ДЖАРВИС · RU» / «JARVIS · EN».
+
+---
+
+## 4. Опасные команды и как их подтверждать
+
+### Какие команды опасные
+
+Backend относит к опасным:
+- `shutdown`, `restart`, `sleep_pc` — необратимые системные действия.
+- `run_powershell` — исполнение произвольного PowerShell (только со маркером `#jarvis-approved`).
+- `edit_registry` — запись в реестр (только HKCU + `Software\Jarvis\*`).
+- `edit_file` — перезапись файла (только текстовые расширения, внутри профиля).
+
+### Как работает подтверждение
+
+1. Пользователь говорит: «выключи компьютер через 30 секунд».
+2. Backend получает команду `shutdown` с args `["30"]`.
+3. Backend НЕ исполняет её сразу, а возвращает:
+   ```json
+   {
+     "id": "5",
+     "ok": false,
+     "need_confirm": true,
+     "token": "3b28374c6469429f81f005f34f06281c",
+     "danger": "shutdown",
+     "preview": "Shutdown PC in 30s"
+   }
+   ```
+4. UI показывает красное модальное окно:
+   ```
+   СЭР, ПОДТВЕРДИТЕ: shutdown
+   Shutdown PC in 30s
+   [ ОТМЕНА ]  [ ПОДТВЕРЖДАЮ ]
+   ```
+5. Пользователь:
+   - Голосом: «да» / «да подтверждаю» / «подтверждаю» — подтверждает.
+   - Голосом: «нет» / «отмена» — отменяет.
+   - Кликом по кнопке «ПОДТВЕРЖДАЮ» / «ОТМЕНА».
+6. UI отправляет `{"cmd": "confirm", "token": "...", "answer": true|false}`.
+7. Backend валидирует token (одноразовый, TTL=60 сек), исполняет или отменяет.
+
+### Маркер `#jarvis-approved`
+
+Для `run_powershell` обязательно в начале скрипта:
+
+```powershell
+#jarvis-approved
+Write-Output "Hello, sir."
+```
+
+Без маркера backend вернёт `PermissionError: script missing '#jarvis-approved' marker`.
+
+### Реестр: `Software\Jarvis\*`
+
+`edit_registry` принимает `hive`, `path`, `name`, `value`. Разрешены:
+- `hive` = `HKCU` или `HKEY_CURRENT_USER` (никакой HKLM, HKCR, и т.д.).
+- `path` должен начинаться с `Software\Jarvis\` (например, `Software\Jarvis\Settings`).
+
+Перед изменением делает бэкап текущего ключа в `~/.dsh/registry_backup/{ts}.reg`.
+
+### Файлы: только текстовые
+
+`edit_file` принимает `path`, `content`. Разрешены расширения:
+`.txt .md .json .yaml .yml .xml .csv .tsv .ini .cfg .conf .log .py .js .ts .html .css .bat .ps1 .sh .sql .toml .rst`
+
+Перед перезаписью делает бэкап в `~/.dsh/jarvis_backups/{basename}.{ts}.bak`.
+
+---
+
+## 5. Логи и аудит
+
+### `jarvis_audit.log`
+
+Каждая команда (успешная или нет) записывается одной JSON-строкой:
+
+```json
+{"ts": "2026-10-16T10:30:45+00:00", "command": "system_info", "args": [], "ok": true, "note": "ОС: Linux 5.10..."}
+{"ts": "2026-10-16T10:30:50+00:00", "command": "shutdown", "args": ["30"], "ok": false, "note": "pending confirm: Shutdown PC in 30s"}
+{"ts": "2026-10-16T10:31:05+00:00", "command": "shutdown", "args": ["30"], "ok": true, "note": "shutdown scheduled in 30s"}
+```
+
+### Где посмотреть
+
+- **В UI**: правая панель «АУДИТ» — последние 20 записей, автообновление каждые 3 сек.
+- **HTTP**: `GET http://localhost:8000/audit` → `{"entries": [...]}`.
+- **Файл**: `jarvis_audit.log` в папке проекта.
+
+### Ротация
+
+Сейчас ротации нет (лог растёт линейно). Если он станет большим (> 100 MB),
+удалите старые строки или используйте `logrotate` / `Rotate-Item` в PowerShell.
+
+### Бэкапы реестра и файлов
+
+- `~/.dsh/registry_backup/*.reg` — экспорт ключей HKCU\Software\Jarvis\* перед изменением.
+- `~/.dsh/jarvis_backups/{basename}.{ts}.bak` — оригинальное содержимое файлов перед `edit_file`.
+
+---
+
+## 6. Как откатить изменения
+
+### Откат backend.py к предыдущей версии
+
+Если вы делали резервные копии:
+
+```cmd
+copy backend.py.bak backend.py
+```
+
+Иначе — файл можно восстановить из git (если проект в репозитории).
+
+### Откат изменений в реестре
+
+Бэкапы лежат в `%USERPROFILE%\.dsh\registry_backup\`. Импортируйте `.reg`-файл:
+
+```cmd
+reg import "%USERPROFILE%\.dsh\registry_backup\20260101_120000.reg"
+```
+
+### Откат изменений в файлах
+
+Бэкапы лежат в `%USERPROFILE%\.dsh\jarvis_backups\`. Скопируйте `.bak`-файл поверх
+изменённого:
+
+```cmd
+copy "%USERPROFILE%\.dsh\jarvis_backups\note.txt.20260101_120000.bak" note.txt
+```
+
+### Отключение опасных команд
+
+В `backend.py` найдите `COMMANDS_REGISTRY` и закомментируйте строки для
+`run_powershell`, `edit_registry`, `edit_file`. Перезапустите backend.
+
+### Полное удаление
+
+1. Остановите backend (`Ctrl+C` в окне `Server.bat`).
+2. Удалите папку `jarvis/`.
+3. Удалите `~/.dsh/` (бэкапы).
+4. Удалите `jarvis_audit.log`.
+
+---
+
+## 7. Тестирование
+
+### Запуск pytest
+
+```cmd
+cd path\to\jarvis
+python -m pytest tests/ -v
+```
+
+### Что покрывают тесты (69 тестов)
+
+- **Path guards** (3): `inside_profile`, `resolve_path`, `allowed_user_dir`.
+- **A — open/launch** (9): URL scheme validation, shortcuts lookup, exe roots, steam appid.
+- **B — system** (9): volume set/get, shutdown clamps delay, restart /r flag, lock, cancel.
+- **C — files** (10): list_dir, create_folder, delete_file (send2trash), screenshot fallback,
+  file_size, clipboard_set (base64), search_files.
+- **D — media/windows** (5): media_play_pause/next/prev, minimize_all, show_desktop.
+- **E — dangerous** (8): powershell marker, registry hive/path checks, file extension/backup.
+- **Dispatcher** (7): unknown command, safe execute, dangerous needs_confirm, confirm flow,
+  token single-use, deny, rate-limit.
+- **Audit** (3): writes log, reads reversed, empty.
+- **process_request** (3): ping, commands list, unknown error.
+- **WebSocket layer** (8): ping, unknown, commands list, multiple commands, rate-limit,
+  dangerous returns token, confirm full flow, origin forbidden.
+- **Security** (1): `main()` refuses without `--i-understand-the-risks`.
+
+### Smoke-test (отдельный скрипт)
+
+```cmd
+python scripts\smoke_test.py
+```
+
+Запускает backend на случайном порту, отправляет 7 команд через WS-клиент, проверяет
+ответы (ping, commands, unknown, system_info, shutdown → token → confirm, /audit).
+
+### Windows-only тесты
+
+Тесты на `volume_set`, `cmd_volume_get`, `cmd_brightness_set`, `cmd_lock_pc`, `cmd_sleep_pc`
+используют `ctypes.windll` — на Linux они skipped автоматически через `monkeypatch`
+(в тест-фикстурах подменяется). На Windows они пройдут полностью.
+
+---
+
+## 8. Безопасность
+
+### Принятые меры
+
+1. **Слушает только `127.0.0.1`** — backend недоступен из внешней сети.
+2. **Origin whitelist** — разрешены только `http://localhost:8000` и `http://127.0.0.1:8000`.
+   Чужой Origin → `403 Forbidden`.
+3. **Rate-limit** — не более 10 команд в секунду с одного IP. Превышение → `429`.
+4. **Whitelist команд** — никаких произвольных `subprocess.Popen`. Каждая команда —
+   отдельная функция с проверкой аргументов.
+5. **Опасные команды требуют подтверждения** — shutdown/restart/sleep/powershell/registry/file.
+6. **Маркер `#jarvis-approved`** — для PowerShell. Без него backend откажется исполнять.
+7. **Реестр: только HKCU + `Software\Jarvis\*`** — HKLM и другие ключи запрещены.
+8. **Файлы: только текстовые расширения + только внутри `%USERPROFILE%`**.
+9. **Бэкапы** перед изменением реестра/файлов — в `~/.dsh/`.
+10. **Флаг `--i-understand-the-risks`** — backend не стартует без явного подтверждения.
+11. **Аудит** — каждая команда (включая неизвестные и отменённые) пишется в `jarvis_audit.log`.
+
+### Что НЕ защищено
+
+- **Cross-Site WebSocket Hijacking (CSWSH)**: теоретически, если атакующий откроет
+  страницу на `http://localhost:8000` в браузере жертвы, он сможет отправлять команды.
+  Защита: Origin whitelist + не открывайте подозрительные ссылки на localhost.
+- **Локальный злоумышленник**: любой процесс на компьютере может подключиться к
+  `127.0.0.1:8000`. Защита: запускайте только от доверенного пользователя.
+
+### Рекомендации
+
+- **Запускайте от НЕ-администратора**. Если backend запущен от админа, опасные команды
+  получат лишние привилегии.
+- **Не открывайте порт наружу** (НЕ пробрасывайте 8000 в роутере).
+- **Не выполняйте PowerShell-скрипты из недоверенных источников**, даже с маркером.
+- **Периодически проверяйте `jarvis_audit.log`** на предмет подозрительной активности.
+- **Ограничьте права на `shortcuts.json`** — только чтение/запись вашим пользователем.
+
+---
+
+## 9. Архитектура
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                       Браузер (Chromium)                       │
+│                                                                │
+│  jarvis.html                                                   │
+│  ┌─────────────┐  ┌──────────┐  ┌────────────────────────┐    │
+│  │ Web Speech  │  │ Reactor  │  │ WebSocket client       │    │
+│  │ API (ru-RU) │→ │ + Wave   │  │ ws://localhost:8000/ws │    │
+│  └─────────────┘  └──────────┘  └───────────┬────────────┘    │
+│        │                                       │ ↑             │
+│        ▼                                       │ │ responses   │
+│  handleCommand() ←→ BACKEND_PATTERNS ←───────┘ │              │
+│        │                                       │              │
+│        └→ speechSynthesis (TTS) ←──────────────┘              │
+└────────────────────────────────────────────────────────────────┘
+                              │
+                              │ JSON over WS
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                  backend.py (Python, aiohttp)                  │
+│                                                                │
+│  HTTP server :8000 (127.0.0.1 only)                          │
+│  ├── GET /              → jarvis.html                          │
+│  ├── GET /shortcuts.json → статика                              │
+│  ├── GET /audit         → последние 20 записей аудита          │
+│  └── GET /ws            → WebSocket                             │
+│                                                                │
+│  process_request(msg)                                          │
+│  ├── cmd=ping           → {pong: true}                          │
+│  ├── cmd=commands       → список 31 команды                    │
+│  ├── cmd=confirm/deny   → подтверждение опасной команды         │
+│  └── cmd=any_other      → DISPATCHER.execute()                  │
+│                                                                │
+│  Dispatcher                                                   │
+│  ├── allow(ip)           → rate-limit (10/sec per IP)           │
+│  ├── execute(cmd, args) → безопасная сразу, опасная → token    │
+│  ├── confirm(token)     → исполнить опасную                    │
+│  └── deny(token)        → отменить                             │
+│                                                                │
+│  WHITELIST (31 команда)                                       │
+│  ├── A: open_url, open_path, launch_app, launch_exe, steam   │
+│  ├── B: system_info, volume_*, brightness, shutdown, restart  │
+│  ├── C: list_dir, create_folder, delete_file, screenshot, ... │
+│  ├── D: media_play_pause, media_next, minimize_all, ...      │
+│  └── E: run_powershell, edit_registry, edit_file (опасные)    │
+│                                                                │
+│  Audit → jarvis_audit.log (JSON lines)                        │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                  Windows (subprocess / ctypes / WMI / pycaw)
+```
+
+---
+
+## 10. ⚠️ Риски
+
+**Внимательно прочитайте перед использованием.**
+
+1. **Локальный backend с системными правами**. Backend может выключить компьютер,
+   заблокировать сессию, изменить реестр, запустить PowerShell. Это **необходимый**
+   функционал голосового ассистента, но и **потенциальная угроза**, если попадёт
+   не в те руки.
+
+2. **Запускайте от НЕ-администратора**. Создайте отдельного пользователя
+   `jarvis-user` с обычными правами и запускайте backend от его имени. Это
+   ограничит ущерб, если кто-то получит доступ к WS.
+
+3. **Не пробрасывайте порт 8000 наружу**. Backend слушает только `127.0.0.1`,
+   но если вы настроите port-forwarding или VPN — он станет доступен из интернета.
+   Это категорически **запрещено**.
+
+4. **Не выполняйте PowerShell-скрипты из недоверенных источников**, даже если они
+   содержат маркер `#jarvis-approved`. Маркер — это защита от случайного запуска,
+   не от вредоносного кода.
+
+5. **Проверяйте `jarvis_audit.log` регулярно**. Все команды пишутся в лог. Если
+   видите незнакомые — кто-то или что-то получило доступ к вашему localhost.
+
+6. **Web Speech API** отправляет аудио на серверы Google для распознавания
+   (только в Chrome/Edge). Если это неприемлемо — используйте локальный
+   распознаватель (Vosk / Whisper), но это потребует доработки.
+
+7. **`shortcuts.json`** содержит Steam-URLs для запуска игр. Если кто-то подменит
+   этот файл — он сможет запустить произвольный URL/протокол. Защитите файл
+   правами доступа.
+
+8. **Бэкапы** в `~/.dsh/` не шифруются. Если в них попадут чувствительные данные
+   (например, `edit_file` для `~/.ssh/config`) — они будут лежать в открытом виде.
+
+### Принимая решение о запуске
+
+Запуская `python backend.py --i-understand-the-risks`, вы подтверждаете, что:
+- Понимаете, что backend исполняет системные команды.
+- Запускаете его на своём личном компьютере, а не на сервере с публичным доступом.
+- У вас установлены актуальные обновления Windows и антивирус.
+- Вы не будете использовать опасные команды (E) без необходимости.
+
+---
+
+**J.A.R.V.I.S.** — *Just A Rather Very Intelligent System.*
