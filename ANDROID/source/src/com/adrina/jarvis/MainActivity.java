@@ -47,6 +47,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
@@ -76,6 +77,8 @@ public class MainActivity extends Activity {
     private boolean torchOn = false;
     private String pendingDangerToken = null;
     private String pendingDangerCmd = null;
+    /** Индекс установленных приложений: "нижнее регистра имя" → [package, label]. */
+    private HashMap<String, String[]> appIndex = null;
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
@@ -210,6 +213,7 @@ public class MainActivity extends Activity {
                     startActivity(i);
                     return;
                 }
+                toast("«" + pkg + "» не установлено — открываю Play Market, сэр");
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW,
                             Uri.parse("market://details?id=" + pkg)));
@@ -561,12 +565,26 @@ public class MainActivity extends Activity {
                 }
             }
             case "launch_app": {
+                /* 1) Ярлыки пользователя и встроенные */
                 String target = resolveShortcut(a0);
-                if (target == null) {
-                    return jsonErr("Не найден ярлык «" + a0 + "». Добавьте его в настройках.");
+                if (target != null) {
+                    handleExternalTarget(target);
+                    return jsonOk("Запускаю " + a0);
                 }
-                handleExternalTarget(target);
-                return jsonOk("Запускаю " + a0);
+                /* 2) Умный поиск среди установленных приложений по названию */
+                String[] app = resolveInstalledApp(a0);
+                if (app != null) {
+                    try {
+                        Intent i = getPackageManager().getLaunchIntentForPackage(app[0]);
+                        if (i != null) {
+                            startActivity(i);
+                            return jsonOk("Запускаю " + app[1], app[1]);
+                        }
+                    } catch (Exception e) {
+                        return jsonErr("Не смог запустить «" + app[1] + "»: " + e.getMessage());
+                    }
+                }
+                return jsonErr("Не нашёл «" + a0 + "» среди установленных приложений, сэр.\nДобавьте ярлык в настройках или проверьте название.");
             }
             case "torch_on": return torchResult(true);
             case "torch_off": return torchResult(false);
@@ -661,6 +679,152 @@ public class MainActivity extends Activity {
             if (sc.has(name)) return sc.optString(name);
         } catch (Exception ignored) { }
         return null;
+    }
+
+    /* ==================== УМНЫЙ ЗАПУСК ПРИЛОЖЕНИЙ ==================== */
+
+    /** Популярные псевдонимы: фраза → пакеты-кандидаты (первый установленный побеждает). */
+    private static final Map<String, String[]> ALIAS = new HashMap<>();
+    static {
+        ALIAS.put("ютуб", new String[]{"com.google.android.youtube"});
+        ALIAS.put("youtube", new String[]{"com.google.android.youtube"});
+        ALIAS.put("ютуб музыка", new String[]{"com.google.android.apps.youtube.music"});
+        ALIAS.put("ютубмьюзик", new String[]{"com.google.android.apps.youtube.music"});
+        ALIAS.put("телеграм", new String[]{"org.telegram.messenger", "org.telegram.plus"});
+        ALIAS.put("телега", new String[]{"org.telegram.messenger", "org.telegram.plus"});
+        ALIAS.put("тг", new String[]{"org.telegram.messenger", "org.telegram.plus"});
+        ALIAS.put("telegram", new String[]{"org.telegram.messenger", "org.telegram.plus"});
+        ALIAS.put("ватсап", new String[]{"com.whatsapp"});
+        ALIAS.put("вотсап", new String[]{"com.whatsapp"});
+        ALIAS.put("whatsapp", new String[]{"com.whatsapp"});
+        ALIAS.put("вк", new String[]{"com.vkontakte.android"});
+        ALIAS.put("вконтакте", new String[]{"com.vkontakte.android"});
+        ALIAS.put("vk", new String[]{"com.vkontakte.android"});
+        ALIAS.put("инстаграм", new String[]{"com.instagram.android"});
+        ALIAS.put("инста", new String[]{"com.instagram.android"});
+        ALIAS.put("instagram", new String[]{"com.instagram.android"});
+        ALIAS.put("тикток", new String[]{"com.zhiliaoapp.musically"});
+        ALIAS.put("tiktok", new String[]{"com.zhiliaoapp.musically"});
+        ALIAS.put("дискорд", new String[]{"com.discord"});
+        ALIAS.put("discord", new String[]{"com.discord"});
+        ALIAS.put("спотифай", new String[]{"com.spotify.music"});
+        ALIAS.put("spotify", new String[]{"com.spotify.music"});
+        ALIAS.put("роблокс", new String[]{"com.roblox.client"});
+        ALIAS.put("roblox", new String[]{"com.roblox.client"});
+        ALIAS.put("хром", new String[]{"com.android.chrome"});
+        ALIAS.put("хрум", new String[]{"com.android.chrome"});
+        ALIAS.put("chrome", new String[]{"com.android.chrome"});
+        ALIAS.put("гугл", new String[]{"com.google.android.googlequicksearchbox"});
+        ALIAS.put("карты", new String[]{"com.google.android.apps.maps", "ru.yandex.yandexmaps"});
+        ALIAS.put("навигатор", new String[]{"com.google.android.apps.maps", "ru.yandex.yandexmaps"});
+        ALIAS.put("почта", new String[]{"com.google.android.gm", "ru.mail.mailapp", "com.my.mail"});
+        ALIAS.put("gmail", new String[]{"com.google.android.gm"});
+        ALIAS.put("яндекс музыка", new String[]{"ru.yandex.music"});
+        ALIAS.put("яндексмузыка", new String[]{"ru.yandex.music"});
+        ALIAS.put("вкладки", new String[]{"com.sec.android.app.launcher"});
+        ALIAS.put("маркет", new String[]{"com.android.vending"});
+        ALIAS.put("плей маркет", new String[]{"com.android.vending"});
+        ALIAS.put("play market", new String[]{"com.android.vending"});
+    }
+
+    /** Нормализация имён: нижний регистр, ё→е, схлопывание пробелов. */
+    private static String normName(String s) {
+        if (s == null) return "";
+        return s.toLowerCase(Locale.ROOT).replace('ё', 'е').trim().replaceAll("\\s+", " ");
+    }
+
+    /** Индекс установленных запускаемых приложений (лениво, один раз). */
+    private void buildAppIndex() {
+        appIndex = new HashMap<>();
+        try {
+            Intent main = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+            List<android.content.pm.ResolveInfo> list =
+                    getPackageManager().queryIntentActivities(main, 0);
+            for (android.content.pm.ResolveInfo ri : list) {
+                if (ri == null || ri.activityInfo == null) continue;
+                String pkg = ri.activityInfo.packageName;
+                if ("com.adrina.jarvis".equals(pkg)) continue;
+                CharSequence lbl = ri.loadLabel(getPackageManager());
+                if (lbl == null || lbl.length() == 0) continue;
+                String label = lbl.toString().trim();
+                String key = normName(label);
+                if (!appIndex.containsKey(key)) appIndex.put(key, new String[]{pkg, label});
+            }
+        } catch (Exception ignored) { }
+    }
+
+    /** Поиск установленного приложения по названию: псевдоним → точное → вхождение → fuzzy. */
+    private String[] resolveInstalledApp(String raw) {
+        String q = normName(raw);
+        if (q.isEmpty()) return null;
+        if (appIndex == null) buildAppIndex();
+
+        /* 1) Псевдоним → первый установленный пакет-кандидат */
+        String[] cands = ALIAS.get(q);
+        if (cands != null) {
+            for (String pkg : cands) {
+                Intent i = getPackageManager().getLaunchIntentForPackage(pkg);
+                if (i != null) {
+                    String label = labelOfPackage(pkg);
+                    return new String[]{pkg, label != null ? label : pkg};
+                }
+            }
+        }
+
+        /* 2) Точное совпадение по названию приложения */
+        String[] exact = appIndex.get(q);
+        if (exact != null) return exact;
+
+        /* 3) Вхождение: «ютуб мьюзик» содержит/содержится в label */
+        String[] partial = null;
+        for (Map.Entry<String, String[]> e : appIndex.entrySet()) {
+            String label = e.getKey();
+            if (label.contains(q) || q.contains(label)) {
+                if (partial == null || label.length() < partial[1].length()) partial = e.getValue();
+            }
+        }
+        if (partial != null) return partial;
+
+        /* 4) Нечёткое совпадение (порог 0.6) */
+        String[] best = null;
+        double bs = 0;
+        for (Map.Entry<String, String[]> e : appIndex.entrySet()) {
+            double s = sim(q, e.getKey());
+            if (s > bs && s >= 0.6) { bs = s; best = e.getValue(); }
+        }
+        return best;
+    }
+
+    private String labelOfPackage(String pkg) {
+        try {
+            android.content.pm.ApplicationInfo ai =
+                    getPackageManager().getApplicationInfo(pkg, 0);
+            CharSequence l = getPackageManager().getApplicationLabel(ai);
+            return l != null ? l.toString() : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Похожесть строк 0..1 (нормализованное расстояние Левенштейна). */
+    private static double sim(String a, String b) {
+        if (a.equals(b)) return 1.0;
+        int la = a.length(), lb = b.length();
+        if (la == 0 || lb == 0) return 0.0;
+        int[] prev = new int[lb + 1];
+        int[] cur = new int[lb + 1];
+        for (int j = 0; j <= lb; j++) prev[j] = j;
+        for (int i = 1; i <= la; i++) {
+            cur[0] = i;
+            char ca = a.charAt(i - 1);
+            for (int j = 1; j <= lb; j++) {
+                int cost = (ca == b.charAt(j - 1)) ? 0 : 1;
+                cur[j] = Math.min(Math.min(cur[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
+            }
+            int[] t = prev; prev = cur; cur = t;
+        }
+        int dist = prev[lb];
+        return 1.0 - (double) dist / Math.max(la, lb);
     }
 
     private JSONObject batteryJson() {
@@ -804,7 +968,7 @@ public class MainActivity extends Activity {
                 + "\"base_url\":\"https://ai.starimg.ru/v1\","
                 + "\"model\":\"deepseek4pro\","
                 + "\"api_key\":\"\","
-                + "\"persona\":\"Ты — J.A.R.V.I.S. (Just A Rather Very Intelligent System), персональный ИИ-ассистент. Общайся на русском, кратко, по делу, с лёгким юмором и обращайся к пользователю как к «сэр». Ты управляешь его телефоном. Чтобы выполнить действие, в конце ответа вставь отдельной строкой метку: [[OPEN:https://...]] — открыть ссылку, [[RUN:имя]] — запустить приложение из списка ярлыков (например: telegram, youtube, chrome, spotify), [[SEARCH:запрос]] — искать в интернете. Если действие не требуется — метку не ставь. Никогда не объясняй формат меток.\""
+                + "\"persona\":\"Ты — J.A.R.V.I.S. (Just A Rather Very Intelligent System), персональный ИИ-ассистент. Общайся на русском, кратко, по делу, с лёгким юмором и обращайся к пользователю как к «сэр». Ты управляешь его телефоном. Чтобы выполнить действие, в конце ответа вставь отдельной строкой метку: [[OPEN:https://...]] — открыть ссылку, [[RUN:название]] — запустить приложение на телефоне по названию (например: ютуб, телеграм, whatsapp, карты) или ярлыку (telegram, chrome, spotify), [[SEARCH:запрос]] — искать в интернете. Если действие не требуется — метку не ставь. Никогда не объясняй формат меток.\""
                 + "}}";
     }
 
@@ -832,6 +996,15 @@ public class MainActivity extends Activity {
         try {
             o.put("ok", true);
             o.put("stdout", stdout);
+        } catch (Exception ignored) { }
+        return o;
+    }
+
+    /** jsonOk с меткой приложения (JS показывает её в логе запуска). */
+    private static JSONObject jsonOk(String stdout, String label) {
+        JSONObject o = jsonOk(stdout);
+        try {
+            o.put("label", label);
         } catch (Exception ignored) { }
         return o;
     }
