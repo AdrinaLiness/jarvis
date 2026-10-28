@@ -5,6 +5,65 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 версионирование — [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [2.1.0] — 2026-10-28
+
+### Добавлено — Settings Panel (GUI)
+
+- **Кнопка «⚙ НАСТРОЙКИ»** в шапке UI — открывает полноэкранный модал настроек.
+- **6 вкладок**:
+  - **Ярлыки** — CRUD для `shortcuts.json` (добавление/редактирование/удаление ярлыков через UI)
+  - **Папки** — список разрешённых папок внутри `%USERPROFILE%` (`Downloads`, `Documents`, + кастомные)
+  - **EXE корни** — директории для `launch_exe` (по умолчанию Program Files, + кастомные)
+  - **Опасные** — включить/выключить подтверждение для shutdown/restart/sleep/PowerShell/registry/file-edit
+  - **Голос** — RU/EN режим, скорость (0.5–2.0), высота (0.5–2.0), кнопка «ТЕСТ ГОЛОСА»
+  - **Импорт/Экспорт** — скачать `config.json`, загрузить свой, кнопка «СБРОС К ДЕФОЛТУ»
+
+- **`config.json`** (новый файл) — централизованное хранение всех настроек:
+  ```json
+  {
+    "shortcuts": {...},
+    "allowedFolders": [...],
+    "allowedExeRoots": [...],
+    "dangerousCommands": {...},
+    "voice": {"mode","rate","pitch"},
+    "server": {"host","port"}
+  }
+  ```
+
+- **Backend endpoints**:
+  - `GET  /api/settings` — отдаёт текущий config
+  - `POST /api/settings` — валидирует → бэкапит → сохраняет → применяет в рантайме
+  - `POST /api/settings/reset` — сброс к дефолту
+
+- **Runtime-применение настроек** — после POST не нужно перезапускать backend:
+  - `ALLOWED_USER_FOLDERS`, `ALLOWED_EXE_ROOTS`, `DANGEROUS_CMDS` обновляются сразу
+
+- **Валидация**:
+  - Схемы ярлыков: только `http`, `https`, `steam`, `file` (никакого `javascript:`!)
+  - Voice rate/pitch: диапазон 0.5–2.0
+  - Whitelist опасных команд: только известные имена
+
+- **Бэкапы**:
+  - `~/.dsh/config_backups/config.{ts}.json.bak` — хранятся последние 10
+  - Перед каждым сохранением создаётся новый бэкап
+
+- **33 новых теста** в `tests/test_settings.py`:
+  - Валидация (schemes, ranges, dangerous toggles)
+  - Загрузка/создание config.json
+  - apply_config (runtime update)
+  - Backup rotation (max 10)
+  - HTTP endpoints (GET/POST/reset)
+  - Shortcuts loading priority (config.json > shortcuts.json)
+  - Audit integration
+
+### Изменено
+- `ALLOWED_USER_FOLDERS` теперь mutable (можно менять через GUI)
+- `ALLOWED_EXE_ROOTS` теперь хранятся как строки (не Path)
+- `_load_shortcuts()` теперь приоритетно читает из `config.json`
+- При старте backend загружает `config.json` и применяет `apply_config()`
+
+---
+
 ## [2.0.0] — 2026-10-28
 
 ### Добавлено

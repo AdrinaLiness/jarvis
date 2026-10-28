@@ -123,6 +123,67 @@ footer{border-top:1px solid var(--dim);padding:12px 22px 16px;background:linear-
 .danger-box .d-cancel:hover{color:var(--c2);border-color:var(--c2)}
 .danger-box .d-confirm{color:#02141d;background:var(--bad);border-color:var(--bad)}
 .danger-box .d-confirm:hover{box-shadow:0 0 22px rgba(255,92,108,.75)}
+
+/* ============ SETTINGS PANEL ============ */
+#settingsModal{position:fixed;top:0;left:0;right:0;bottom:0;z-index:180;background:rgba(1,7,11,.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:.25s}
+#settingsModal.on{opacity:1;visibility:visible}
+.settings-box{width:900px;max-width:96vw;max-height:90vh;background:rgba(4,20,30,.97);border:1px solid var(--c);box-shadow:0 0 60px rgba(56,232,255,.35);display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
+.settings-head{display:flex;gap:12px;padding:16px 22px;border-bottom:1px solid var(--dim);align-items:center}
+.settings-head h2{font-family:'Orbitron',sans-serif;font-size:14px;letter-spacing:.24em;color:var(--c2);text-shadow:0 0 14px var(--c)}
+.settings-head .head-status{font-size:11px;color:var(--dim);letter-spacing:.1em;margin-left:auto}
+.settings-head .close-btn{cursor:pointer;color:var(--dim);font-size:18px;background:transparent;border:1px solid var(--dim);padding:4px 10px;transition:.2s}
+.settings-head .close-btn:hover{color:var(--bad);border-color:var(--bad)}
+.settings-body{display:grid;grid-template-columns:200px 1fr;min-height:0}
+.settings-tabs{border-right:1px solid var(--dim);padding:12px;overflow-y:auto}
+.settings-tab{padding:10px 12px;font-size:11.5px;color:var(--dim);cursor:pointer;border-left:2px solid transparent;transition:.15s;letter-spacing:.06em;display:flex;align-items:center;gap:8px}
+.settings-tab:hover{color:var(--c2)}
+.settings-tab.on{color:var(--c2);border-left-color:var(--c);background:rgba(56,232,255,.06)}
+.settings-tab .tab-icon{font-size:14px;opacity:.8}
+.settings-content{padding:18px 22px;overflow-y:auto;font-size:12px;line-height:1.5}
+.settings-pane{display:none}
+.settings-pane.on{display:block}
+.settings-pane h3{font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:.18em;color:var(--c2);margin-bottom:14px;padding-bottom:6px;border-bottom:1px solid var(--dim2)}
+.settings-row{display:grid;grid-template-columns:1fr 2fr auto;gap:10px;align-items:center;margin-bottom:8px;padding:6px 8px;border:1px solid transparent;transition:.15s}
+.settings-row:hover{border-color:var(--dim2);background:rgba(56,232,255,.03)}
+.settings-row input[type=text]{background:rgba(2,14,20,.7);border:1px solid var(--dim);color:var(--c2);padding:6px 10px;font-family:inherit;font-size:12px;outline:none}
+.settings-row input[type=text]:focus{border-color:var(--c);box-shadow:0 0 12px rgba(56,232,255,.2) inset}
+.settings-row .row-name{color:var(--c2);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.settings-row .row-target{color:var(--dim);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-add{padding:6px 14px;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:.12em;background:transparent;border:1px solid var(--c);color:var(--c);cursor:pointer;transition:.2s}
+.btn-add:hover{background:var(--c);color:#02141d;box-shadow:0 0 14px rgba(56,232,255,.4)}
+.btn-icon{padding:4px 8px;background:transparent;border:1px solid var(--dim);color:var(--dim);cursor:pointer;font-size:12px;transition:.15s}
+.btn-icon:hover{color:var(--c2);border-color:var(--c2)}
+.btn-icon.danger:hover{color:var(--bad);border-color:var(--bad)}
+.settings-row-list{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-bottom:6px;padding:6px 8px;border:1px solid var(--dim2)}
+.settings-row-list:hover{border-color:var(--dim)}
+.settings-row-list input{background:rgba(2,14,20,.7);border:1px solid var(--dim);color:var(--c2);padding:6px 10px;font-family:inherit;font-size:12px;outline:none}
+.settings-row-list input:focus{border-color:var(--c)}
+.toggle-row{display:flex;align-items:center;gap:12px;padding:10px 8px;border-bottom:1px dashed var(--dim2)}
+.toggle-row:last-child{border-bottom:0}
+.toggle-row .toggle-label{flex:1;font-size:12px;color:var(--c2)}
+.toggle-row .toggle-desc{font-size:10.5px;color:var(--dim);margin-top:2px}
+.toggle{position:relative;width:42px;height:22px;background:rgba(56,232,255,.1);border:1px solid var(--dim);cursor:pointer;transition:.25s;flex-shrink:0}
+.toggle.on{background:rgba(66,255,176,.2);border-color:var(--ok)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:var(--dim);transition:.25s}
+.toggle.on::after{left:22px;background:var(--ok);box-shadow:0 0 10px var(--ok)}
+.voice-slider{display:grid;grid-template-columns:120px 1fr 50px;gap:10px;align-items:center;margin-bottom:10px;font-size:11px}
+.voice-slider input[type=range]{-webkit-appearance:none;height:4px;background:rgba(56,232,255,.1);border:1px solid var(--dim);outline:none}
+.voice-slider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:var(--c);cursor:pointer;border-radius:0;box-shadow:0 0 10px var(--c)}
+.voice-slider .slider-value{color:var(--c2);font-family:'Orbitron',sans-serif;text-align:right}
+.voice-test{padding:6px 14px;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:.12em;background:transparent;border:1px solid var(--c);color:var(--c);cursor:pointer;transition:.2s;margin-top:8px}
+.voice-test:hover{background:var(--c);color:#02141d}
+.settings-foot{padding:12px 22px;border-top:1px solid var(--dim);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.settings-foot .foot-info{font-size:10.5px;color:var(--dim);letter-spacing:.1em}
+.settings-foot .foot-actions{display:flex;gap:8px}
+.btn-save{padding:8px 22px;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:.18em;background:var(--ok);border:1px solid var(--ok);color:#02141d;cursor:pointer;transition:.2s}
+.btn-save:hover{box-shadow:0 0 22px rgba(66,255,176,.5)}
+.btn-reset{padding:8px 16px;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:.14em;background:transparent;border:1px solid var(--bad);color:var(--bad);cursor:pointer;transition:.2s}
+.btn-reset:hover{background:var(--bad);color:#02141d}
+.btn-cancel{padding:8px 16px;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:.14em;background:transparent;border:1px solid var(--dim);color:var(--dim);cursor:pointer;transition:.2s}
+.btn-cancel:hover{color:var(--c2);border-color:var(--c2)}
+.settings-toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);padding:10px 22px;background:rgba(2,12,18,.95);border:1px solid var(--ok);color:var(--ok);font-size:12px;letter-spacing:.1em;opacity:0;transition:.3s;z-index:300;pointer-events:none}
+.settings-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.settings-toast.err{border-color:var(--bad);color:var(--bad)}
 </style>
 </head>
 <body>
@@ -134,6 +195,7 @@ footer{border-top:1px solid var(--dim);padding:12px 22px 16px;background:linear-
 <div class="brand"><h1>J.A.R.V.I.S.</h1><small>JUST A RATHER VERY INTELLIGENT SYSTEM</small></div>
 <div class="hdr-right">
 <button class="chip" id="vmode" style="font-size:10px;padding:5px 10px;letter-spacing:.15em">ДЖАРВИС · RU</button>
+<button class="chip" id="settingsBtn" style="font-size:10px;padding:5px 10px;letter-spacing:.15em">⚙ НАСТРОЙКИ</button>
 <span><span class="dot"></span> ONLINE</span>
 <span><span class="ws-dot connecting" id="wsDot"></span> BACKEND</span>
 <span class="clock" id="clock">--:--:--</span>
@@ -1660,6 +1722,429 @@ setInterval(refreshAudit, 3000);
   if (btnConfirm) btnConfirm.addEventListener('click',function(){answerDanger(true);});
   if (btnCancel) btnCancel.addEventListener('click',function(){answerDanger(false);});
 })();
+
+/* ============================================================
+   SETTINGS PANEL — управление config.json через GUI
+   ============================================================ */
+var settingsOpen=false;
+var settingsConfig=null;   // текущий config в памяти (edited copy)
+var settingsActivePane='shortcuts';
+
+function settingsOpenModal(){
+  settingsOpen=true;
+  document.getElementById('settingsModal').classList.add('on');
+  settingsLoadConfig();
+}
+function settingsCloseModal(){
+  settingsOpen=false;
+  document.getElementById('settingsModal').classList.remove('on');
+}
+
+function settingsLoadConfig(){
+  var st=document.getElementById('settingsStatus');
+  if (st) st.textContent='ЗАГРУЗКА...';
+  fetch('/api/settings').then(function(r){return r.json();}).then(function(cfg){
+    settingsConfig=JSON.parse(JSON.stringify(cfg));  // deep copy
+    if (st) st.textContent='ГОТОВО';
+    if (st) st.classList.add('on');
+    settingsRenderAll();
+    settingsUpdateFootInfo();
+  }).catch(function(e){
+    if (st) st.textContent='ОШИБКА: '+e.message;
+    if (st) st.classList.add('err');
+  });
+}
+
+function settingsUpdateFootInfo(){
+  var info=document.getElementById('settingsFootInfo');
+  if (!info || !settingsConfig) return;
+  var sc=settingsConfig.shortcuts||{};
+  var fol=settingsConfig.allowedFolders||[];
+  var exe=settingsConfig.allowedExeRoots||[];
+  var dg=settingsConfig.dangerousCommands||{};
+  var enabledDanger=Object.keys(dg).filter(function(k){return dg[k];}).length;
+  info.textContent='Ярлыков: '+Object.keys(sc).length+' · Папок: '+fol.length+' · EXE корней: '+exe.length+' · Опасных активно: '+enabledDanger+'/'+Object.keys(dg).length;
+}
+
+function settingsRenderAll(){
+  settingsRenderShortcuts();
+  settingsRenderFolders();
+  settingsRenderExeRoots();
+  settingsRenderDangerous();
+  settingsRenderVoice();
+  settingsRenderIO();
+}
+
+/* --- Shortcuts --- */
+function settingsRenderShortcuts(){
+  var el=document.getElementById('shortcutsList');
+  if (!el) return;
+  var sc=settingsConfig.shortcuts||{};
+  var keys=Object.keys(sc);
+  if (!keys.length){
+    el.innerHTML='<div style="color:var(--dim);font-size:11px;padding:8px">Пусто. Нажмите «+ ДОБАВИТЬ ЯРЛЫК».</div>';
+    return;
+  }
+  var html='';
+  for (var i=0;i<keys.length;i++){
+    var k=keys[i], v=sc[k];
+    html+='<div class="settings-row" data-key="'+esc(k)+'">'
+      + '<input type="text" class="row-name" data-field="name" value="'+esc(k)+'" placeholder="имя (например: discord)">'
+      + '<input type="text" class="row-target" data-field="target" value="'+esc(v)+'" placeholder="steam://... или https://...">'
+      + '<button class="btn-icon danger" data-action="del-shortcut" data-key="'+esc(k)+'" title="Удалить">🗑</button>'
+      + '</div>';
+  }
+  el.innerHTML=html;
+}
+
+/* --- Folders --- */
+function settingsRenderFolders(){
+  var el=document.getElementById('foldersList');
+  if (!el) return;
+  var fol=settingsConfig.allowedFolders||[];
+  if (!fol.length){
+    el.innerHTML='<div style="color:var(--dim);font-size:11px;padding:8px">Пусто.</div>';
+    return;
+  }
+  var html='';
+  for (var i=0;i<fol.length;i++){
+    html+='<div class="settings-row-list">'
+      + '<input type="text" data-field="folder" data-idx="'+i+'" value="'+esc(fol[i])+'" placeholder="например: Desktop">'
+      + '<button class="btn-icon danger" data-action="del-folder" data-idx="'+i+'" title="Удалить">🗑</button>'
+      + '</div>';
+  }
+  el.innerHTML=html;
+}
+
+/* --- EXE Roots --- */
+function settingsRenderExeRoots(){
+  var el=document.getElementById('exeRootsList');
+  if (!el) return;
+  var exe=settingsConfig.allowedExeRoots||[];
+  if (!exe.length){
+    el.innerHTML='<div style="color:var(--dim);font-size:11px;padding:8px">Пусто.</div>';
+    return;
+  }
+  var html='';
+  for (var i=0;i<exe.length;i++){
+    html+='<div class="settings-row-list">'
+      + '<input type="text" data-field="exe" data-idx="'+i+'" value="'+esc(exe[i])+'" placeholder="C:\\Program Files">'
+      + '<button class="btn-icon danger" data-action="del-exe" data-idx="'+i+'" title="Удалить">🗑</button>'
+      + '</div>';
+  }
+  el.innerHTML=html;
+}
+
+/* --- Dangerous commands --- */
+var DANGEROUS_DESC={
+  shutdown:      {name:'Выключение ПК',     desc:'shutdown /s /t N — выключает компьютер через N секунд'},
+  restart:       {name:'Перезагрузка ПК',   desc:'shutdown /r /t N — перезагружает компьютер'},
+  sleep_pc:      {name:'Спящий режим',      desc:'SetSuspendState — переводит ПК в спящий режим'},
+  run_powershell:{name:'PowerShell-скрипт', desc:'Исполнение произвольного PowerShell (требует маркер #jarvis-approved)'},
+  edit_registry: {name:'Изменение реестра', desc:'Запись в HKCU\\Software\\Jarvis\\* (с бэкапом)'},
+  edit_file:     {name:'Правка файлов',     desc:'Перезапись текстовых файлов (с бэкапом оригинала)'}
+};
+function settingsRenderDangerous(){
+  var el=document.getElementById('dangerousList');
+  if (!el) return;
+  var dg=settingsConfig.dangerousCommands||{};
+  var keys=Object.keys(DANGEROUS_DESC);
+  var html='';
+  for (var i=0;i<keys.length;i++){
+    var k=keys[i], info=DANGEROUS_DESC[k];
+    var enabled=!!dg[k];
+    html+='<div class="toggle-row">'
+      + '<div>'
+      + '<div class="toggle-label">'+info.name+' <code style="color:var(--dim);font-size:10px">'+esc(k)+'</code></div>'
+      + '<div class="toggle-desc">'+esc(info.desc)+'</div>'
+      + '</div>'
+      + '<div class="toggle '+(enabled?'on':'')+'" data-action="toggle-danger" data-key="'+esc(k)+'"></div>'
+      + '</div>';
+  }
+  el.innerHTML=html;
+}
+
+/* --- Voice --- */
+function settingsRenderVoice(){
+  var v=settingsConfig.voice||{mode:'russian',rate:1,pitch:1};
+  var tg=document.getElementById('voiceModeToggle');
+  if (tg){
+    tg.classList.toggle('on', v.mode==='authentic');
+  }
+  var rate=document.getElementById('voiceRate');
+  if (rate){ rate.value=v.rate; }
+  var pitch=document.getElementById('voicePitch');
+  if (pitch){ pitch.value=v.pitch; }
+  var rv=document.getElementById('voiceRateVal');
+  if (rv){ rv.textContent=Number(v.rate).toFixed(2); }
+  var pv=document.getElementById('voicePitchVal');
+  if (pv){ pv.textContent=Number(v.pitch).toFixed(2); }
+}
+
+/* --- Import/Export --- */
+function settingsRenderIO(){
+  var prev=document.getElementById('configPreview');
+  if (prev && settingsConfig){
+    prev.textContent=JSON.stringify(settingsConfig,null,2);
+  }
+}
+
+/* --- Переключение вкладок --- */
+function settingsSwitchPane(pane){
+  settingsActivePane=pane;
+  var tabs=document.querySelectorAll('.settings-tab');
+  for (var i=0;i<tabs.length;i++){
+    tabs[i].classList.toggle('on', tabs[i].dataset.pane===pane);
+  }
+  var panes=document.querySelectorAll('.settings-pane');
+  for (var j=0;j<panes.length;j++){
+    panes[j].classList.toggle('on', panes[j].id==='pane-'+pane);
+  }
+}
+
+/* --- Toast --- */
+function settingsToast(msg, isErr){
+  var el=document.getElementById('settingsToast');
+  if (!el) return;
+  el.textContent=msg;
+  el.classList.toggle('err', !!isErr);
+  el.classList.add('show');
+  setTimeout(function(){ el.classList.remove('show'); }, 2400);
+}
+
+/* --- Сохранение --- */
+function settingsSave(){
+  if (!settingsConfig){
+    settingsToast('Нет config для сохранения', true);
+    return;
+  }
+  fetch('/api/settings', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(settingsConfig)
+  }).then(function(r){return r.json();}).then(function(resp){
+    if (resp.ok){
+      settingsToast('✓ Настройки сохранены');
+      /* Применяем голос */
+      if (settingsConfig.voice){
+        if (settingsConfig.voice.mode!==voiceMode){
+          setVoiceMode(settingsConfig.voice.mode);
+        }
+        voiceRate=Number(settingsConfig.voice.rate)||1;
+        voicePitch=Number(settingsConfig.voice.pitch)||1;
+      }
+      settingsUpdateFootInfo();
+    } else {
+      settingsToast('✗ '+(resp.error||'ошибка'), true);
+    }
+  }).catch(function(e){
+    settingsToast('✗ '+e.message, true);
+  });
+}
+
+/* --- Сброс --- */
+function settingsReset(){
+  if (!confirm('Сбросить ВСЕ настройки к значениям по умолчанию?')) return;
+  fetch('/api/settings/reset',{method:'POST'}).then(function(r){return r.json();}).then(function(resp){
+    if (resp.ok){
+      settingsConfig=resp.config;
+      settingsRenderAll();
+      settingsUpdateFootInfo();
+      settingsToast('✓ Сброс к дефолту');
+    } else {
+      settingsToast('✗ '+(resp.error||'ошибка'), true);
+    }
+  }).catch(function(e){
+    settingsToast('✗ '+e.message, true);
+  });
+}
+
+/* --- Экспорт --- */
+function settingsExport(){
+  if (!settingsConfig) return;
+  var blob=new Blob([JSON.stringify(settingsConfig,null,2)],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download='config.json'; a.click();
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+  settingsToast('✓ Config.json экспортирован');
+}
+
+/* --- Импорт --- */
+function settingsImport(file){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var imported=JSON.parse(e.target.result);
+      settingsConfig=imported;
+      settingsRenderAll();
+      settingsUpdateFootInfo();
+      settingsToast('✓ Config.json импортирован (не забудьте СОХРАНИТЬ)');
+    }catch(err){
+      settingsToast('✗ Невалидный JSON: '+err.message, true);
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* --- Привязка событий --- */
+(function(){
+  var btn=document.getElementById('settingsBtn');
+  if (btn) btn.addEventListener('click', settingsOpenModal);
+  var close=document.getElementById('settingsClose');
+  if (close) close.addEventListener('click', settingsCloseModal);
+  var cancel=document.getElementById('settingsCancel');
+  if (cancel) cancel.addEventListener('click', settingsCloseModal);
+  var save=document.getElementById('settingsSave');
+  if (save) save.addEventListener('click', settingsSave);
+  var reset=document.getElementById('resetConfig');
+  if (reset) reset.addEventListener('click', settingsReset);
+  var exp=document.getElementById('exportConfig');
+  if (exp) exp.addEventListener('click', settingsExport);
+  var imp=document.getElementById('importConfigFile');
+  if (imp) imp.addEventListener('change', function(e){ if (e.target.files[0]) settingsImport(e.target.files[0]); });
+  /* Tabs */
+  var tabs=document.querySelectorAll('.settings-tab');
+  for (var i=0;i<tabs.length;i++){
+    tabs[i].addEventListener('click', function(){ settingsSwitchPane(this.dataset.pane); });
+  }
+  /* Esc — закрыть */
+  document.addEventListener('keydown', function(e){
+    if (e.key==='Escape' && settingsOpen) settingsCloseModal();
+  });
+  /* Делегирование кликов внутри settings-content (для add/del/toggle) */
+  var content=document.querySelector('.settings-content');
+  if (content){
+    content.addEventListener('click', function(e){
+      var t=e.target;
+      if (!t) return;
+      var action=t.dataset && t.dataset.action;
+      if (!action) return;
+      if (action==='del-shortcut'){
+        var key=t.dataset.key;
+        if (settingsConfig.shortcuts && settingsConfig.shortcuts[key]!==undefined){
+          delete settingsConfig.shortcuts[key];
+          settingsRenderShortcuts();
+          settingsUpdateFootInfo();
+        }
+      } else if (action==='del-folder'){
+        var idx=parseInt(t.dataset.idx,10);
+        if (settingsConfig.allowedFolders){
+          settingsConfig.allowedFolders.splice(idx,1);
+          settingsRenderFolders();
+          settingsUpdateFootInfo();
+        }
+      } else if (action==='del-exe'){
+        var idx2=parseInt(t.dataset.idx,10);
+        if (settingsConfig.allowedExeRoots){
+          settingsConfig.allowedExeRoots.splice(idx2,1);
+          settingsRenderExeRoots();
+          settingsUpdateFootInfo();
+        }
+      } else if (action==='toggle-danger'){
+        var k=t.dataset.key;
+        if (settingsConfig.dangerousCommands && settingsConfig.dangerousCommands[k]!==undefined){
+          settingsConfig.dangerousCommands[k]=!settingsConfig.dangerousCommands[k];
+          t.classList.toggle('on', settingsConfig.dangerousCommands[k]);
+          settingsUpdateFootInfo();
+        }
+      }
+    });
+    /* Изменение в input (live update) */
+    content.addEventListener('input', function(e){
+      var t=e.target;
+      if (!t || !t.dataset) return;
+      var field=t.dataset.field;
+      var idx=t.dataset.idx;
+      var key=t.dataset.key;
+      if (field==='name'){
+        /* Переименование ярлыка */
+        var oldKey=t.parentElement.dataset.key;
+        var target=settingsConfig.shortcuts[oldKey];
+        if (target!==undefined && t.value){
+          delete settingsConfig.shortcuts[oldKey];
+          settingsConfig.shortcuts[t.value]=target;
+          t.parentElement.dataset.key=t.value;
+        }
+      } else if (field==='target'){
+        var k2=t.parentElement.dataset.key;
+        if (k2 && settingsConfig.shortcuts[k2]!==undefined){
+          settingsConfig.shortcuts[k2]=t.value;
+        }
+      } else if (field==='folder'){
+        var i2=parseInt(idx,10);
+        if (settingsConfig.allowedFolders && settingsConfig.allowedFolders[i2]!==undefined){
+          settingsConfig.allowedFolders[i2]=t.value;
+        }
+      } else if (field==='exe'){
+        var i3=parseInt(idx,10);
+        if (settingsConfig.allowedExeRoots && settingsConfig.allowedExeRoots[i3]!==undefined){
+          settingsConfig.allowedExeRoots[i3]=t.value;
+        }
+      }
+    });
+    /* Кнопки "добавить" */
+    var addSc=document.getElementById('addShortcut');
+    if (addSc) addSc.addEventListener('click', function(){
+      var i=1; while(settingsConfig.shortcuts['new'+i]) i++;
+      settingsConfig.shortcuts['new'+i]='https://example.com';
+      settingsRenderShortcuts();
+      settingsUpdateFootInfo();
+    });
+    var addFol=document.getElementById('addFolder');
+    if (addFol) addFol.addEventListener('click', function(){
+      settingsConfig.allowedFolders.push('NewFolder');
+      settingsRenderFolders();
+      settingsUpdateFootInfo();
+    });
+    var addExe=document.getElementById('addExeRoot');
+    if (addExe) addExe.addEventListener('click', function(){
+      settingsConfig.allowedExeRoots.push('C:\\\\NewPath');
+      settingsRenderExeRoots();
+      settingsUpdateFootInfo();
+    });
+  }
+  /* Voice: toggle */
+  var vToggle=document.getElementById('voiceModeToggle');
+  if (vToggle) vToggle.addEventListener('click', function(){
+    if (!settingsConfig.voice) settingsConfig.voice={mode:'russian',rate:1,pitch:1};
+    settingsConfig.voice.mode = (settingsConfig.voice.mode==='authentic')?'russian':'authentic';
+    vToggle.classList.toggle('on', settingsConfig.voice.mode==='authentic');
+  });
+  /* Voice: sliders */
+  var vRate=document.getElementById('voiceRate');
+  if (vRate) vRate.addEventListener('input', function(e){
+    var v=parseFloat(e.target.value);
+    if (!settingsConfig.voice) settingsConfig.voice={};
+    settingsConfig.voice.rate=v;
+    var el=document.getElementById('voiceRateVal');
+    if (el) el.textContent=v.toFixed(2);
+  });
+  var vPitch=document.getElementById('voicePitch');
+  if (vPitch) vPitch.addEventListener('input', function(e){
+    var v=parseFloat(e.target.value);
+    if (!settingsConfig.voice) settingsConfig.voice={};
+    settingsConfig.voice.pitch=v;
+    var el=document.getElementById('voicePitchVal');
+    if (el) el.textContent=v.toFixed(2);
+  });
+  /* Voice: тест */
+  var vTest=document.getElementById('voiceTest');
+  if (vTest) vTest.addEventListener('click', function(){
+    var wasMode=voiceMode, wasRate=voiceRate, wasPitch=voicePitch;
+    if (settingsConfig.voice){
+      voiceMode=settingsConfig.voice.mode||'russian';
+      voiceRate=Number(settingsConfig.voice.rate)||1;
+      voicePitch=Number(settingsConfig.voice.pitch)||1;
+    }
+    speakBoot(voiceMode==='authentic'
+      ? 'Voice module initialized. British English profile engaged. At your service, sir.'
+      : 'Голосовой модуль инициализирован. Русский профиль активирован. К вашим услугам, сэр.');
+    setTimeout(function(){
+      voiceMode=wasMode; voiceRate=wasRate; voicePitch=wasPitch;
+    }, 4000);
+  });
+})();
 </script>
 <div id="dangerModal">
   <div class="danger-box">
@@ -1671,5 +2156,116 @@ setInterval(refreshAudit, 3000);
     </div>
   </div>
 </div>
+
+<!-- ============ SETTINGS PANEL ============ -->
+<div id="settingsModal">
+  <div class="settings-box">
+    <div class="settings-head">
+      <h2>⚙ НАСТРОЙКИ СИСТЕМЫ</h2>
+      <span class="head-status" id="settingsStatus">ЗАГРУЗКА...</span>
+      <button class="close-btn" id="settingsClose" title="Закрыть (Esc)">×</button>
+    </div>
+    <div class="settings-body">
+      <div class="settings-tabs" id="settingsTabs">
+        <div class="settings-tab on" data-pane="shortcuts"><span class="tab-icon">▶</span> Ярлыки</div>
+        <div class="settings-tab" data-pane="folders"><span class="tab-icon">📁</span> Папки</div>
+        <div class="settings-tab" data-pane="exe"><span class="tab-icon">⚙</span> EXE корни</div>
+        <div class="settings-tab" data-pane="commands"><span class="tab-icon">⚠</span> Опасные</div>
+        <div class="settings-tab" data-pane="voice"><span class="tab-icon">🔊</span> Голос</div>
+        <div class="settings-tab" data-pane="io"><span class="tab-icon">⇅</span> Импорт/Экспорт</div>
+      </div>
+      <div class="settings-content">
+        <!-- Pane: Shortcuts -->
+        <div class="settings-pane on" id="pane-shortcuts">
+          <h3>ЯРЛЫКИ ПРИЛОЖЕНИЙ</h3>
+          <p style="color:var(--dim);font-size:11px;margin-bottom:14px">
+            Имя → цель (URL, steam:// или путь). Голосом: «включи [имя]».
+          </p>
+          <div id="shortcutsList"></div>
+          <button class="btn-add" id="addShortcut">+ ДОБАВИТЬ ЯРЛЫК</button>
+        </div>
+
+        <!-- Pane: Folders -->
+        <div class="settings-pane" id="pane-folders">
+          <h3>РАЗРЕШЁННЫЕ ПАПКИ</h3>
+          <p style="color:var(--dim);font-size:11px;margin-bottom:14px">
+            Папки внутри %USERPROFILE%, к которым JARVIS имеет доступ (open_path, list_dir, delete_file).
+          </p>
+          <div id="foldersList"></div>
+          <button class="btn-add" id="addFolder">+ ДОБАВИТЬ ПАПКУ</button>
+        </div>
+
+        <!-- Pane: EXE -->
+        <div class="settings-pane" id="pane-exe">
+          <h3>КОРНИ ДЛЯ .EXE</h3>
+          <p style="color:var(--dim);font-size:11px;margin-bottom:14px">
+            Директории, из которых можно запускать .exe через launch_exe.
+            По умолчанию: Program Files, Program Files (x86), %LOCALAPPDATA%.
+          </p>
+          <div id="exeRootsList"></div>
+          <button class="btn-add" id="addExeRoot">+ ДОБАВИТЬ КОРЕНЬ</button>
+        </div>
+
+        <!-- Pane: Commands -->
+        <div class="settings-pane" id="pane-commands">
+          <h3>ОПАСНЫЕ КОМАНДЫ</h3>
+          <p style="color:var(--dim);font-size:11px;margin-bottom:14px">
+            Включить/выключить подтверждение для опасных команд. Если выключено —
+            команда исполняется мгновенно без модала.
+          </p>
+          <div id="dangerousList"></div>
+        </div>
+
+        <!-- Pane: Voice -->
+        <div class="settings-pane" id="pane-voice">
+          <h3>ГОЛОСОВАЯ ПОДСИСТЕМА</h3>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Режим голоса</div>
+              <div class="toggle-desc">RU (русский) или EN (британский, Paul Bettany)</div>
+            </div>
+            <div class="toggle on" id="voiceModeToggle"></div>
+          </div>
+          <div class="voice-slider">
+            <span>Скорость (rate)</span>
+            <input type="range" id="voiceRate" min="0.5" max="2" step="0.05" value="1">
+            <span class="slider-value" id="voiceRateVal">1.00</span>
+          </div>
+          <div class="voice-slider">
+            <span>Высота (pitch)</span>
+            <input type="range" id="voicePitch" min="0.5" max="2" step="0.05" value="1">
+            <span class="slider-value" id="voicePitchVal">1.00</span>
+          </div>
+          <button class="voice-test" id="voiceTest">▶ ТЕСТ ГОЛОСА</button>
+        </div>
+
+        <!-- Pane: Import/Export -->
+        <div class="settings-pane" id="pane-io">
+          <h3>ИМПОРТ / ЭКСПОРТ</h3>
+          <p style="color:var(--dim);font-size:11px;margin-bottom:14px">
+            Скачайте текущий config.json для бэкапа, или загрузите свой.
+          </p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn-add" id="exportConfig">⇩ ЭКСПОРТ CONFIG.JSON</button>
+            <label class="btn-add" style="cursor:pointer">
+              ⇧ ИМПОРТ CONFIG.JSON
+              <input type="file" id="importConfigFile" accept=".json,application/json" style="display:none">
+            </label>
+            <button class="btn-reset" id="resetConfig">↺ СБРОС К ДЕФОЛТУ</button>
+          </div>
+          <div id="configPreview" style="margin-top:14px;padding:10px;background:rgba(2,14,20,.7);border:1px solid var(--dim);font-size:10.5px;color:var(--dim);max-height:200px;overflow:auto;white-space:pre-wrap;font-family:'Share Tech Mono',monospace"></div>
+        </div>
+      </div>
+    </div>
+    <div class="settings-foot">
+      <span class="foot-info" id="settingsFootInfo">—</span>
+      <div class="foot-actions">
+        <button class="btn-cancel" id="settingsCancel">ОТМЕНА</button>
+        <button class="btn-save" id="settingsSave">СОХРАНИТЬ</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="settings-toast" id="settingsToast"></div>
 </body>
 </html>

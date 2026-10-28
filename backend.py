@@ -68,21 +68,37 @@ SHUTDOWN_DELAY_MAX = 3600 # максимум секунд до shutdown/restart
 ROOT = Path(__file__).parent.resolve()
 AUDIT_LOG = ROOT / "jarvis_audit.log"
 SHORTCUTS_FILE = ROOT / "shortcuts.json"
+CONFIG_FILE = ROOT / "config.json"          # новый: все настройки GUI
 
 USER_HOME = Path.home()
 BACKUP_DIR = USER_HOME / ".dsh" / "jarvis_backups"
 REG_BACKUP_DIR = USER_HOME / ".dsh" / "registry_backup"
+CONFIG_BACKUP_DIR = USER_HOME / ".dsh" / "config_backups"
 
-ALLOWED_USER_FOLDERS = {
+# Mutable-контейнеры (можно изменять через GUI без перезапуска backend)
+DEFAULT_ALLOWED_USER_FOLDERS = {
     "Downloads", "Documents", "Desktop", "Pictures", "Music", "Videos",
     "Загрузки", "Документы", "Рабочий стол", "Изображения", "Музыка", "Видео",
 }
+ALLOWED_USER_FOLDERS: set[str] = set(DEFAULT_ALLOWED_USER_FOLDERS)
 
-ALLOWED_EXE_ROOTS = [
-    Path(r"C:\Program Files"),
-    Path(r"C:\Program Files (x86)"),
-    Path(os.environ.get("LOCALAPPDATA", r"C:\Users\Public")),
+DEFAULT_ALLOWED_EXE_ROOTS = [
+    r"C:\Program Files",
+    r"C:\Program Files (x86)",
+    os.environ.get("LOCALAPPDATA", r"C:\Users\Public"),
 ]
+ALLOWED_EXE_ROOTS: list[str] = list(DEFAULT_ALLOWED_EXE_ROOTS)
+
+# Какие команды считаются опасными (можно отключать через GUI)
+DEFAULT_DANGEROUS_ENABLED = {
+    "shutdown": True,
+    "restart": True,
+    "sleep_pc": True,
+    "run_powershell": True,
+    "edit_registry": True,
+    "edit_file": True,
+}
+DANGEROUS_ENABLED: dict[str, bool] = dict(DEFAULT_DANGEROUS_ENABLED)
 
 TEXT_EXTENSIONS = {
     ".txt", ".md", ".json", ".yaml", ".yml", ".xml", ".csv", ".tsv",
@@ -199,13 +215,123 @@ def allowed_user_dir(path: Path | str) -> tuple[bool, str]:
         return (False, "outside user profile")
     if not rel.parts:
         return (True, "user profile root")
-    if rel.parts[0] not in ALLOWED_USER_FOLDERS:
-        return (False, f"folder not in whitelist: {rel.parts[0]}")
-    return (True, str(rel.parts[0]))
+    # Проверяем как EN, так и RU-имя (из config)
+    folder_name = rel.parts[0]
+    folder_lower = folder_name.lower()
+    allowed_lower = {f.lower() for f in ALLOWED_USER_FOLDERS}
+    if folder_lower not in allowed_lower:
+        return (False, f"folder not in whitelist: {folder_name}")
+    return (True, str(folder_name))
+
+
+# ============================================================================
+# CONFIG (config.json) — управление настройками через GUI
+# ============================================================================
+
+def _default_config() -> dict[str, Any]:
+    """Дефолтный config (используется при первом запуске)."""
+    return {
+        "shortcuts": _load_shortcuts_file(),
+        "allowedFolders": sorted(DEFAULT_ALLOWED_USER_FOLDERS),
+        "allowedExeRoots": list(DEFAULT_ALLOWED_EXE_ROOTS),
+        "dangerousCommands": dict(DEFAULT_DANGEROUS_ENABLED),
+        "voice": {
+            "mode": "russian",          # 'russian' | 'authentic'
+            "rate": 1.0,
+            "pitch": 1.0,
+        },
+        "server": {
+            "host": HOST,
+            "port": DEFAULT_PORT,
+        },
+    }
+
+
+def _load_shortcuts_file() -> dict[str, str]:
+    """Читает shortcuts.json напрямую (без config.json)."""
+    try:
+        with SHORTCUTS_FILE.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            return {str(k): str(v) for k, v in data.items()}
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def _load_config() -> dict[str, Any]:
+    """Загружает config.json. Если его нет — создаёт из дефолта."""
+    if not CONFIG_FILE.exists():
+        cfg = _default_config()
+        try:
+            with CONFIG_FILE.open("w", encoding="utf-8") as f:
+                json.dump(cfg, f, ensure_ascii=False, indent=2)
+            log.info("config.json создан с дефолтными настройками: %s", CONFIG_FILE)
+        except OSError as e:
+            log.warning("не удалось создать config.json: %s", e)
+        return cfg
+    try:
+        with CONFIG_FILE.open("r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        if not isinstance(cfg, dict):
+            log.warning("config.json: не dict, использую дефолт")
+            return _default_config()
+        # Backfill отсутствующих ключей из дефолта
+        default = _default_config()
+        for k, v in default.items():
+            if k not in cfg:
+                cfg[k] = v
+        return cfg
+    except (json.JSONDecodeError, OSError) as e:
+        log.warning("config.json не прочитан (%s), использую дефолт", e)
+        return _default_config()
+
+
+def apply_config(cfg: dict[str, Any]) -> None:
+    """Применяет config к глобальным переменным (без перезапуска backend)."""
+    global ALLOWED_USER_FOLDERS, ALLOWED_EXE_ROOTS, DANGEROUS_ENABLED
+    folders = cfg.get("allowedFolders", [])
+    if isinstance(folders, list) and folders:
+        ALLOWED_USER_FOLDERS = set(str(f) for f in folders)
+    else:
+        ALLOWED_USER_FOLDERS = set(DEFAULT_ALLOWED_USER_FOLDERS)
+
+    roots = cfg.get("allowedExeRoots", [])
+    if isinstance(roots, list) and roots:
+        ALLOWED_EXE_ROOTS = [str(r) for r in roots]
+    else:
+        ALLOWED_EXE_ROOTS = list(DEFAULT_ALLOWED_EXE_ROOTS)
+
+    dangerous = cfg.get("dangerousCommands", {})
+    if isinstance(dangerous, dict):
+        DANGEROUS_ENABLED = {k: bool(v) for k, v in dangerous.items()}
+    else:
+        DANGEROUS_ENABLED = dict(DEFAULT_DANGEROUS_ENABLED)
+
+    # Синхронизируем DANGEROUS_CMDS с DANGEROUS_ENABLED
+    # (команды с False в DANGEROUS_ENABLED не считаются опасными)
+    _rebuild_dangerous_set()
+
+
+def _rebuild_dangerous_set() -> None:
+    """Перестраивает DANGEROUS_CMDS на основе DANGEROUS_ENABLED."""
+    global DANGEROUS_CMDS
+    DANGEROUS_CMDS = {
+        name for name, enabled in DANGEROUS_ENABLED.items() if enabled
+    }
 
 
 def _load_shortcuts() -> dict[str, str]:
-    """Читает shortcuts.json. Пустой dict при ошибке."""
+    """Читает ярлыки. Приоритет: config.json → shortcuts.json → пустой dict."""
+    # 1) Если config.json уже загружен — берём shortcuts из него
+    if CONFIG_FILE.exists():
+        try:
+            with CONFIG_FILE.open("r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            if isinstance(cfg, dict) and isinstance(cfg.get("shortcuts"), dict):
+                return {str(k): str(v) for k, v in cfg["shortcuts"].items()}
+        except (json.JSONDecodeError, OSError) as e:
+            log.warning("config.json не прочитан (%s), fallback на shortcuts.json", e)
+    # 2) Fallback: shortcuts.json
     try:
         with SHORTCUTS_FILE.open("r", encoding="utf-8") as f:
             data = json.load(f)
@@ -984,6 +1110,151 @@ async def _audit_endpoint(request: web.Request) -> web.Response:
     return web.json_response({"entries": read_audit()})
 
 
+# ============================================================================
+# SETTINGS API (config.json — управление через GUI)
+# ============================================================================
+
+# Валидация: разрешённые схемы для ярлыков
+ALLOWED_SHORTCUT_SCHEMES = ("http", "https", "steam", "file")
+
+# Валидация: опасные имена команд (только из этого списка можно переключать)
+TOGGLEABLE_DANGEROUS = {
+    "shutdown", "restart", "sleep_pc",
+    "run_powershell", "edit_registry", "edit_file",
+}
+
+
+def _validate_config(cfg: dict[str, Any]) -> tuple[bool, str]:
+    """Валидирует config. Возвращает (ok, error_message)."""
+    if not isinstance(cfg, dict):
+        return (False, "config must be a JSON object")
+    # shortcuts
+    sc = cfg.get("shortcuts")
+    if sc is not None:
+        if not isinstance(sc, dict):
+            return (False, "shortcuts must be an object")
+        for k, v in sc.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                return (False, f"shortcut '{k}' must be string→string")
+            if not k.strip():
+                return (False, "shortcut name cannot be empty")
+            # Проверка схемы (для URL-ярлыков) — ищем "scheme:" в начале значения
+            import re as _re
+            m = _re.match(r"^([a-zA-Z][a-zA-Z0-9+.\-]*)\s*:", v)
+            if m:
+                scheme = m.group(1).lower()
+                if scheme not in ALLOWED_SHORTCUT_SCHEMES:
+                    return (False, f"shortcut scheme not allowed: {scheme}")
+    # allowedFolders
+    af = cfg.get("allowedFolders")
+    if af is not None:
+        if not isinstance(af, list) or not all(isinstance(x, str) for x in af):
+            return (False, "allowedFolders must be a list of strings")
+    # allowedExeRoots
+    ar = cfg.get("allowedExeRoots")
+    if ar is not None:
+        if not isinstance(ar, list) or not all(isinstance(x, str) for x in ar):
+            return (False, "allowedExeRoots must be a list of strings")
+    # dangerousCommands
+    dc = cfg.get("dangerousCommands")
+    if dc is not None:
+        if not isinstance(dc, dict):
+            return (False, "dangerousCommands must be an object")
+        for k, v in dc.items():
+            if k not in TOGGLEABLE_DANGEROUS:
+                return (False, f"unknown dangerous command: {k}")
+            if not isinstance(v, bool):
+                return (False, f"dangerousCommands.{k} must be boolean")
+    # voice
+    v = cfg.get("voice")
+    if v is not None:
+        if not isinstance(v, dict):
+            return (False, "voice must be an object")
+        if v.get("mode") not in (None, "russian", "authentic"):
+            return (False, "voice.mode must be 'russian' or 'authentic'")
+        rate = v.get("rate", 1.0)
+        if not isinstance(rate, (int, float)) or rate < 0.5 or rate > 2.0:
+            return (False, "voice.rate must be 0.5..2.0")
+        pitch = v.get("pitch", 1.0)
+        if not isinstance(pitch, (int, float)) or pitch < 0.5 or pitch > 2.0:
+            return (False, "voice.pitch must be 0.5..2.0")
+    return (True, "")
+
+
+def _backup_config() -> None:
+    """Сохраняет текущий config.json в ~/.dsh/config_backups/{ts}.json.bak."""
+    if not CONFIG_FILE.exists():
+        return
+    try:
+        CONFIG_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup = CONFIG_BACKUP_DIR / f"config.{ts}.json.bak"
+        shutil.copy2(CONFIG_FILE, backup)
+        # Храним максимум 10 бэкапов
+        backups = sorted(CONFIG_BACKUP_DIR.glob("config.*.json.bak"))
+        if len(backups) > 10:
+            for old in backups[:-10]:
+                old.unlink()
+    except OSError as e:
+        log.warning("config backup failed: %s", e)
+
+
+async def _settings_get(request: web.Request) -> web.Response:
+    """GET /api/settings — отдаёт текущий config."""
+    cfg = _load_config()
+    return web.json_response(cfg)
+
+
+async def _settings_post(request: web.Request) -> web.Response:
+    """POST /api/settings — валидирует и сохраняет новый config."""
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"ok": False, "error": "invalid json"}, status=400)
+    if not isinstance(body, dict):
+        return web.json_response({"ok": False, "error": "expected object"}, status=400)
+
+    ok, err = _validate_config(body)
+    if not ok:
+        audit("settings_save", [body], ok=False, note=f"validation failed: {err}")
+        return web.json_response({"ok": False, "error": err}, status=400)
+
+    # Merge с существующим config (чтобы не потерять ключи, которые UI не прислал)
+    current = _load_config()
+    for k, v in body.items():
+        current[k] = v
+
+    # Backup старого
+    _backup_config()
+
+    # Запись нового
+    try:
+        with CONFIG_FILE.open("w", encoding="utf-8") as f:
+            json.dump(current, f, ensure_ascii=False, indent=2)
+    except OSError as e:
+        audit("settings_save", [], ok=False, note=f"write failed: {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    # Применяем изменения в рантайме
+    apply_config(current)
+    audit("settings_save", [list(body.keys())], ok=True, note="config updated")
+    return web.json_response({"ok": True, "config": current})
+
+
+async def _settings_reset(request: web.Request) -> web.Response:
+    """POST /api/settings/reset — сброс к дефолту."""
+    _backup_config()
+    default = _default_config()
+    try:
+        with CONFIG_FILE.open("w", encoding="utf-8") as f:
+            json.dump(default, f, ensure_ascii=False, indent=2)
+        apply_config(default)
+        audit("settings_reset", [], ok=True, note="config reset to defaults")
+        return web.json_response({"ok": True, "config": default})
+    except OSError as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+
 async def _ws_handler(request: web.Request) -> web.StreamResponse:
     """WebSocket-эндпоинт /ws."""
     origin = request.headers.get("Origin")
@@ -1055,11 +1326,23 @@ def main(argv: list[str] | None = None) -> int:
 
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     REG_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Загружаем config.json (создастся автоматически при первом запуске)
+    cfg = _load_config()
+    apply_config(cfg)
+    log.info("config.json загружен: shortcuts=%d, folders=%d, exeRoots=%d",
+             len(cfg.get("shortcuts", {})),
+             len(cfg.get("allowedFolders", [])),
+             len(cfg.get("allowedExeRoots", [])))
 
     app = web.Application(middlewares=[origin_middleware])
     app.router.add_get("/", _index)
     app.router.add_get("/ws", _ws_handler)
     app.router.add_get("/audit", _audit_endpoint)
+    app.router.add_get("/api/settings", _settings_get)
+    app.router.add_post("/api/settings", _settings_post)
+    app.router.add_post("/api/settings/reset", _settings_reset)
     app.router.add_get("/{name}", _static_file)
 
     log.info("J.A.R.V.I.S. backend на http://%s:%s (WS: /ws)", HOST, args.port)

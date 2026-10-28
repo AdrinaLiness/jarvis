@@ -358,6 +358,76 @@ copy "%USERPROFILE%\.dsh\jarvis_backups\note.txt.20260101_120000.bak" note.txt
 
 ---
 
+## 6½. Настройки через GUI
+
+Начиная с v2.1, все настройки можно менять через **⚙ НАСТРОЙКИ** в шапке (без редактирования файлов вручную).
+
+### Что можно настроить
+
+| Вкладка | Что редактирует |
+|---------|-----------------|
+| **Ярлыки** | `shortcuts.json` — добавление/редактирование/удаление ярлыков (Discord, Steam, и т.д.) |
+| **Папки** | Список разрешённых папок внутри `%USERPROFILE%` (`Downloads`, `Documents`, + кастомные) |
+| **EXE корни** | Список директорий для `launch_exe` (по умолчанию Program Files, + кастомные) |
+| **Опасные** | Включить/выключить подтверждение для shutdown/restart/sleep/PowerShell/registry/file-edit |
+| **Голос** | RU/EN режим, скорость (0.5–2.0), высота (0.5–2.0), кнопка «ТЕСТ ГОЛОСА» |
+| **Импорт/Экспорт** | Скачать `config.json` для бэкапа, или загрузить свой; кнопка «СБРОС К ДЕФОЛТУ» |
+
+### Структура config.json
+
+```json
+{
+  "shortcuts": {
+    "discord": "steam://rungameid/1359653083732303872",
+    "youtube": "https://www.youtube.com",
+    "roblox":  "steam://rungameid/11069516278275244032"
+  },
+  "allowedFolders": ["Desktop", "Documents", "Downloads", "Pictures", "Music", "Videos"],
+  "allowedExeRoots": ["C:\\Program Files", "C:\\Program Files (x86)", "%LOCALAPPDATA%"],
+  "dangerousCommands": {
+    "shutdown":       true,
+    "restart":        true,
+    "sleep_pc":       true,
+    "run_powershell": true,
+    "edit_registry":  true,
+    "edit_file":      true
+  },
+  "voice": {
+    "mode":  "russian",      // 'russian' | 'authentic'
+    "rate":  1.0,            // 0.5–2.0
+    "pitch": 1.0             // 0.5–2.0
+  },
+  "server": {"host": "127.0.0.1", "port": 8000}
+}
+```
+
+### Безопасность при сохранении
+
+- **Валидация** на каждый POST: схемы ярлыков (только `http`, `https`, `steam`, `file`), диапазоны voice.rate/pitch, whitelist опасных команд.
+- **Бэкап перед перезаписью** — `~/.dsh/config_backups/config.{ts}.json.bak` (хранятся последние 10).
+- **Origin whitelist** на эндпоинты (как и на WS) — только `localhost:8000`.
+- **Аудит** — каждая смена настроек пишется в `jarvis_audit.log`.
+
+### Пример: добавить ярлык «VPN»
+
+1. Нажмите **⚙ НАСТРОЙКИ** → вкладка **Ярлыки**.
+2. Нажмите **+ ДОБАВИТЬ ЯРЛЫК** — появится пустая строка.
+3. Замените имя на `vpn`, цель на `https://nerp.bot/cabinet`.
+4. Нажмите **СОХРАНИТЬ**.
+5. Теперь «Джарвис, включи vpn» откроет этот URL.
+
+### Пример: отключить подтверждение shutdown
+
+1. **⚙ НАСТРОЙКИ** → вкладка **Опасные**.
+2. Найдите «Выключение ПК» → тумблер.
+3. Кликните на тумблер (зелёный → серый).
+4. **СОХРАНИТЬ**.
+5. Теперь «выключи компьютер» исполнится **мгновенно** без модала подтверждения.
+
+⚠️ **Внимание**: отключение подтверждения для опасных команд повышает риск случайного выполнения.
+
+---
+
 ## 7. Тестирование
 
 ### Запуск pytest
@@ -367,7 +437,7 @@ cd path\to\jarvis
 python -m pytest tests/ -v
 ```
 
-### Что покрывают тесты (69 тестов)
+### Что покрывают тесты (102 теста)
 
 - **Path guards** (3): `inside_profile`, `resolve_path`, `allowed_user_dir`.
 - **A — open/launch** (9): URL scheme validation, shortcuts lookup, exe roots, steam appid.
@@ -383,15 +453,21 @@ python -m pytest tests/ -v
 - **WebSocket layer** (8): ping, unknown, commands list, multiple commands, rate-limit,
   dangerous returns token, confirm full flow, origin forbidden.
 - **Security** (1): `main()` refuses without `--i-understand-the-risks`.
+- **Settings API** (33): config validation (schemes, ranges, dangerous toggles),
+  loading/creation, apply_config runtime update, backup rotation,
+  GET/POST/reset HTTP endpoints, shortcuts loading priority, audit integration.
 
-### Smoke-test (отдельный скрипт)
+### Smoke-tests (отдельные скрипты)
 
 ```cmd
+:: Основной backend + WS
 python scripts\smoke_test.py
+
+:: Settings API
+python scripts\smoke_settings.py
 ```
 
-Запускает backend на случайном порту, отправляет 7 команд через WS-клиент, проверяет
-ответы (ping, commands, unknown, system_info, shutdown → token → confirm, /audit).
+Запускают backend на случайном порту и отправляют 7 команд через WS-клиент или HTTP.
 
 ### Windows-only тесты
 
