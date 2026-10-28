@@ -1,49 +1,56 @@
 #!/bin/bash
-# Сборка J.A.R.V.I.S. Android APK без Gradle.
-# Нужны: JDK 17+, Android build-tools 34 (aapt2, d8, zipalign, apksigner)
-# и platform android-34 (android.jar).
-#
-# Пути задаются переменными окружения:
-#   ANDROID_BUILD_TOOLS   — напр. $ANDROID_HOME/build-tools/34.0.0
-#   ANDROID_PLATFORM_JAR  — напр. $ANDROID_HOME/platforms/android-34/android.jar
+# Сборка J.A.R.V.I.S. Android APK (без Gradle — aapt2 + d8 + apksigner)
 set -e
-BT="${ANDROID_BUILD_TOOLS:-$HOME/android-sdk/build-tools/34.0.0}"
-PLAT="${ANDROID_PLATFORM_JAR:-$HOME/android-sdk/platforms/android-34/android.jar}"
-HERE="$(cd "$(dirname "$0")" && pwd)"
-OUT="$HERE/build"
+SDK=/home/z/my-project/android-sdk
+PROJ=/home/z/my-project/jarvis_android
+BT=$SDK/android-14
+PLAT=$SDK/android-34/android.jar
+JAVA=$SDK/jdk-17.0.21+9/bin
+OUT=$PROJ/out
+export PATH="$JAVA:$PATH"
 
 rm -rf "$OUT"
-mkdir -p "$OUT/classes" "$OUT/dex"
+mkdir -p "$OUT/classes" "$OUT/dex" "$PROJ/build"
 
-echo "[1/5] javac..."
-javac --release 8 -nowarn -classpath "$PLAT" \
-  -d "$OUT/classes" "$HERE"/src/com/adrina/jarvis/*.java
+echo "[1/6] javac..."
+"$JAVA/javac" --release 8 -nowarn -classpath "$PLAT" \
+  -d "$OUT/classes" \
+  "$PROJ"/src/com/adrina/jarvis/*.java
+ls "$OUT/classes/com/adrina/jarvis/" | head -3
 
-echo "[2/5] d8 (dex)..."
+echo "[2/6] d8 (dex)..."
 "$BT/d8" --release --lib "$PLAT" --min-api 24 \
   --output "$OUT/dex" $(find "$OUT/classes" -name "*.class")
+ls -la "$OUT/dex/"
 
-echo "[3/5] aapt2..."
-"$BT/aapt2" compile --dir "$HERE/res" -o "$OUT/res.zip"
-"$BT/aapt2" link -o "$OUT/jarvis-unsigned.apk" -I "$PLAT" \
-  --manifest "$HERE/AndroidManifest.xml" -A "$HERE/assets" \
+echo "[3/6] aapt2 compile + link..."
+"$BT/aapt2" compile --dir "$PROJ/res" -o "$OUT/res.zip"
+"$BT/aapt2" link \
+  -o "$OUT/jarvis-unsigned.apk" \
+  -I "$PLAT" \
+  --manifest "$PROJ/AndroidManifest.xml" \
+  -A "$PROJ/assets" \
   --min-sdk-version 24 --target-sdk-version 34 \
-  --version-code 1 --version-name 1.0 \
-  --auto-add-overlay "$OUT/res.zip"
+  --version-code 2 --version-name 1.1 \
+  --auto-add-overlay \
+  "$OUT/res.zip"
 
-echo "[4/5] classes.dex → apk, zipalign..."
-(cd "$OUT/dex" && zip -q -u "$OUT/jarvis-unsigned.apk" classes.dex)
+echo "[4/6] classes.dex → apk..."
+cd "$OUT/dex" && zip -q -u "$OUT/jarvis-unsigned.apk" classes.dex && cd "$SDK"
+
+echo "[5/6] zipalign..."
 "$BT/zipalign" -f 4 "$OUT/jarvis-unsigned.apk" "$OUT/jarvis-aligned.apk"
 
-echo "[5/5] подпись..."
-KS="$HERE/jarvis.keystore"
+echo "[6/6] подпись..."
+KS=$PROJ/build/jarvis.keystore
 if [ ! -f "$KS" ]; then
   keytool -genkeypair -keystore "$KS" -alias jarvis -keyalg RSA -keysize 2048 \
     -validity 10950 -storepass jarvis2026 -keypass jarvis2026 \
     -dname "CN=JARVIS, OU=AdrinaLiness, O=AdrinaLiness, C=RU" >/dev/null 2>&1
 fi
 "$BT/apksigner" sign --ks "$KS" --ks-pass pass:jarvis2026 \
-  --out "$HERE/JARVIS.apk" "$OUT/jarvis-aligned.apk"
-"$BT/apksigner" verify "$HERE/JARVIS.apk"
+  --out "$PROJ/JARVIS-v1.1.apk" "$OUT/jarvis-aligned.apk"
+"$BT/apksigner" verify "$PROJ/JARVIS-v1.1.apk" && echo "APK OK"
 
-echo "Готово: $HERE/JARVIS.apk"
+ls -la "$PROJ/JARVIS-v1.1.apk"
+"$BT/aapt2" dump badging "$PROJ/JARVIS-v1.1.apk" | head -8
