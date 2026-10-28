@@ -7,7 +7,7 @@ Python-backend), **🟢 GO** (один бинарник с GUI-окном) и **
 
 ![architecture](https://img.shields.io/badge/versions-3-blue) ![html](https://img.shields.io/badge/python-3.10%2B-blue) ![go](https://img.shields.io/badge/go-1.21%2B-00ADD8) ![exe](https://img.shields.io/badge/WebView2-Win10%2F11-success) ![license](https://img.shields.io/badge/license-MIT-green)
 
-## 🚦 Три версии — какую выбрать?
+##  Три версии — какую выбрать?
 
 | | 🌐 HTML | 🟢 GO | 📦 EXE |
 |---|---|---|---|
