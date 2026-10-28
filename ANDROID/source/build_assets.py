@@ -4,6 +4,7 @@
 + Layer1 (shims) после <body>
 + Layer2 (голос/ИИ/телефон) перед </body>
 + Layer3 (ориентации) перед </body>
++ Layer4 (уведомления/напоминания) перед </body>
 + патч openTarget → нативный мост (pkg:/http запуски через Java)
 + патч launchByName → fallback на умный поиск приложений в Java."""
 import io, os, re, sys
@@ -15,6 +16,7 @@ html = io.open(SRC, encoding="utf-8").read()
 l1 = io.open(f"{BASE}/patch/layer1.js", encoding="utf-8").read()
 l2 = io.open(f"{BASE}/patch/layer2.js", encoding="utf-8").read()
 l3 = io.open(f"{BASE}/patch/layer3.js", encoding="utf-8").read()
+l4 = io.open(f"{BASE}/patch/layer4.js", encoding="utf-8").read()
 
 # --- Патч 1: openTarget → нативный мост (надёжный запуск pkg:/https,
 #     минуя window.open, который в WebView ненадёжен для кастомных схем) ---
@@ -65,7 +67,7 @@ html = html[:idx_start] + "/* [JARVIS ANDROID] привязка событий �
 l2 = bind_block + "\n\n" + l2
 
 # защита от преждевременного закрытия script
-for name, js in (("layer1", l1), ("layer2", l2), ("layer3", l3)):
+for name, js in (("layer1", l1), ("layer2", l2), ("layer3", l3), ("layer4", l4)):
     if "</script" in js.lower():
         sys.exit(f"FATAL: {name} содержит </script>")
 
@@ -74,7 +76,7 @@ idx = html.index(marker_body) + len(marker_body)
 html = html[:idx] + "\n<script>\n" + l1 + "\n</script>\n" + html[idx:]
 
 close = html.rindex("</body>")
-html = html[:close] + "<script>\n" + l2 + "\n</script>\n<script>\n" + l3 + "\n</script>\n" + html[close:]
+html = html[:close] + "<script>\n" + l2 + "\n</script>\n<script>\n" + l3 + "\n</script>\n<script>\n" + l4 + "\n</script>\n" + html[close:]
 
 out = f"{BASE}/assets/jarvis.html"
 io.open(out, "w", encoding="utf-8").write(html)
@@ -88,4 +90,6 @@ assert "FakeWebSocket" in html and "NativeSR" in html and "aiPanel" in html
 assert "jarvisOrient" in html, "нет слоя 3 (ориентации)"
 assert "cmd:'open_url'" in html, "openTarget не пропатчен"
 assert "nr.label" in html, "launchByName не пропатчен"
-print("checks passed: shims + v1.1 patches present")
+assert "__jarvisNotifFired" in html, "нет слоя 4 (уведомления)"
+assert "remind_in" in html, "нет голосовых команд напоминаний"
+print("checks passed: shims + v1.1 + v1.2 patches present")
