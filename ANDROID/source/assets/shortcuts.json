@@ -1,0 +1,18 @@
+{
+  "telegram": "pkg:org.telegram.messenger",
+  "whatsapp": "pkg:com.whatsapp",
+  "youtube": "https://www.youtube.com",
+  "chrome": "pkg:com.android.chrome",
+  "spotify": "pkg:com.spotify.music",
+  "discord": "pkg:com.discord",
+  "roblox": "pkg:com.roblox.client",
+  "tiktok": "pkg:com.zhiliaoapp.musically",
+  "instagram": "pkg:com.instagram.android",
+  "vk": "pkg:com.vkontakte.android",
+  "yandex": "https://ya.ru",
+  "yandex_music": "pkg:ru.yandex.music",
+  "карты": "pkg:com.google.android.apps.maps",
+  "gmail": "pkg:com.google.android.gm",
+  "камера": "pkg:com.android.camera2",
+  "steam": "https://store.steampowered.com"
+}
