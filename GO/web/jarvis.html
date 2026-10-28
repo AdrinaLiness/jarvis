@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>J.A.R.V.I.S.</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--c:#38e8ff;--c2:#9df6ff;--dim:rgba(56,232,255,.28);--dim2:rgba(56,232,255,.12);--panel:rgba(6,26,38,.45);--ok:#42ffb0;--warn:#ffb347;--bad:#ff5c6c}
+html,body{height:100%}
+body{background:radial-gradient(circle at 50% 42%,#0b3346 0%,#04141f 45%,#01070b 100%);font-family:'Share Tech Mono',Consolas,monospace;color:var(--c);overflow:hidden}
+body::before{content:'';position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:1;background-image:linear-gradient(rgba(56,232,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(56,232,255,.05) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(circle at 50% 45%,#000 10%,transparent 78%);-webkit-mask-image:radial-gradient(circle at 50% 45%,#000 10%,transparent 78%)}
+body::after{content:'';position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:60;background:repeating-linear-gradient(180deg,rgba(56,232,255,.025) 0 1px,transparent 1px 3px);mix-blend-mode:screen;opacity:.5}
+#boot{position:fixed;top:0;left:0;right:0;bottom:0;z-index:100;background:#01070b;display:flex;align-items:center;justify-content:center;transition:opacity .9s,visibility .9s}
+#boot.hide{opacity:0;visibility:hidden}
+#bootlog{width:680px;max-width:86vw;font-size:15px;line-height:1.9;text-shadow:0 0 12px rgba(56,232,255,.65);color:var(--c2)}
+.bootline::before{content:'> ';color:var(--dim)}
+.bootline{white-space:pre-wrap;min-height:1.9em}
+.cursor{display:inline-block;width:9px;height:1.05em;background:var(--c);vertical-align:-2px;animation:blink .8s steps(1) infinite;box-shadow:0 0 10px var(--c)}
+@keyframes blink{50%{opacity:0}}
+#app{position:fixed;top:0;left:0;right:0;bottom:0;z-index:2;display:grid;grid-template-rows:auto 1fr auto;opacity:0;transition:opacity 1.1s}
+#app.on{opacity:1}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 22px;border-bottom:1px solid var(--dim);background:linear-gradient(180deg,rgba(6,26,38,.75),transparent)}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand h1{font-family:'Orbitron',sans-serif;font-weight:900;letter-spacing:.32em;font-size:22px;text-shadow:0 0 18px rgba(56,232,255,.8),0 0 46px rgba(56,232,255,.35)}
+.brand small{color:var(--dim);letter-spacing:.18em;font-size:10px}
+.hdr-right{display:flex;align-items:center;gap:14px;font-size:12px;letter-spacing:.1em}
+.clock{font-family:'Orbitron',sans-serif;font-size:17px;color:var(--c2);text-shadow:0 0 14px rgba(56,232,255,.7)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block;box-shadow:0 0 10px var(--ok);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+main{display:grid;grid-template-columns:310px 1fr 320px;gap:14px;padding:14px;min-height:0}
+.panel{position:relative;background:var(--panel);border:1px solid var(--dim);backdrop-filter:blur(6px);padding:14px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--dim) transparent}
+.panel::-webkit-scrollbar{width:5px}.panel::-webkit-scrollbar-thumb{background:var(--dim)}
+.panel::before,.panel::after{content:'';position:absolute;width:14px;height:14px;border:2px solid var(--c);opacity:.75;pointer-events:none}
+.panel::before{top:-1px;left:-1px;border-right:0;border-bottom:0}
+.panel::after{bottom:-1px;right:-1px;border-left:0;border-top:0}
+.panel h2{font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:.24em;color:var(--c2);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--dim2);display:flex;justify-content:space-between}
+.panel h2 span{color:var(--dim);font-size:9.5px}
+.metric{margin-bottom:12px}
+.metric .row{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.09em;margin-bottom:5px}
+.metric .row b{color:var(--c2);font-weight:400;font-family:'Orbitron',sans-serif;font-size:10.5px}
+.bar{height:4px;background:rgba(56,232,255,.1);overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#1a7f9c,var(--c));box-shadow:0 0 10px var(--c);transition:width .5s}
+.tgroup{margin-bottom:14px}
+.tgroup-title{font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:.28em;color:var(--c2);opacity:.75;margin-bottom:6px;padding-bottom:3px;border-bottom:1px dashed var(--dim2)}
+.tele{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:11.5px}
+.tele .k{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tele .v{color:var(--c2);text-align:right;font-family:'Orbitron',sans-serif;font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}
+.tele .v.warn{color:var(--warn)}.tele .v.bad{color:var(--bad)}.tele .v.ok{color:var(--ok)}
+.center{display:flex;flex-direction:column;min-height:0;position:relative}
+.reactor-wrap{flex:1;position:relative;min-height:0}
+#reactor{position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;display:block}
+#state{position:absolute;top:8px;left:50%;transform:translateX(-50%);font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:.4em;color:var(--c2);text-shadow:0 0 16px var(--c);padding:6px 18px;border:1px solid var(--dim2);background:rgba(2,12,18,.5);white-space:nowrap}
+.wave{height:86px;position:relative;border-top:1px solid var(--dim2)}
+#wave{position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;display:block}
+#log{display:flex;flex-direction:column;gap:10px;font-size:12.5px;line-height:1.5}
+.msg{padding-left:11px;border-left:2px solid var(--dim);animation:in .35s ease}
+@keyframes in{from{opacity:0;transform:translateX(-8px)}}
+.msg .who{font-size:9.5px;letter-spacing:.22em;color:var(--dim);display:block;margin-bottom:2px}
+.msg.user{border-left-color:var(--warn)}.msg.user .txt{color:#ffd9a0}
+.msg.jarvis{border-left-color:var(--c)}.msg.jarvis .txt{color:var(--c2);text-shadow:0 0 12px rgba(56,232,255,.35)}
+.msg.sys{border-left-color:#5a7f90}.msg.sys .txt{color:#7fa8bb;white-space:pre-wrap;font-size:11.5px}
+footer{border-top:1px solid var(--dim);padding:12px 22px 16px;background:linear-gradient(0deg,rgba(6,26,38,.8),transparent)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.chip{font-size:10.5px;letter-spacing:.1em;padding:5px 11px;cursor:pointer;border:1px solid var(--dim);color:var(--dim);background:transparent;transition:.22s;font-family:inherit}
+.chip:hover{color:#02141d;background:var(--c);border-color:var(--c);box-shadow:0 0 18px rgba(56,232,255,.6)}
+.chip.hot{color:var(--c2);border-color:var(--c);box-shadow:0 0 10px rgba(56,232,255,.3)}
+.inputrow{display:flex;gap:10px;align-items:center}
+#cmd{flex:1;background:rgba(2,14,20,.7);border:1px solid var(--dim);color:var(--c2);padding:11px 15px;font-family:inherit;font-size:13.5px;outline:none}
+#cmd:focus{border-color:var(--c);box-shadow:0 0 22px rgba(56,232,255,.28) inset,0 0 12px rgba(56,232,255,.18)}
+#cmd::placeholder{color:rgba(56,232,255,.32)}
+.btn{width:46px;height:44px;display:grid;place-items:center;cursor:pointer;background:rgba(2,14,20,.7);border:1px solid var(--dim);color:var(--c);transition:.22s;flex:none}
+.btn:hover{border-color:var(--c);box-shadow:0 0 18px rgba(56,232,255,.4)}
+.btn svg{width:19px;height:19px;fill:currentColor}
+.btn.active{background:var(--c);color:#02141d;border-color:var(--c)}
+.btn.off{color:#3d5f6e;border-color:rgba(56,232,255,.14)}
+#send,#paletteBtn{width:auto;padding:0 16px;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:.2em}
+.palette{position:fixed;top:0;left:0;right:0;bottom:0;z-index:150;background:rgba(1,7,11,.85);backdrop-filter:blur(8px);display:flex;align-items:flex-start;justify-content:center;padding:6vh 4vw;opacity:0;visibility:hidden;transition:.25s}
+.palette.on{opacity:1;visibility:visible}
+.palette-box{width:1100px;max-width:100%;max-height:88vh;background:rgba(4,20,30,.96);border:1px solid var(--c);box-shadow:0 0 60px rgba(56,232,255,.35);display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
+.palette-head{display:flex;gap:12px;padding:16px 20px;border-bottom:1px solid var(--dim);align-items:center}
+#paletteSearch{flex:1;background:transparent;border:none;outline:none;color:var(--c2);font-family:inherit;font-size:16px;padding:8px 4px}
+#paletteSearch::placeholder{color:rgba(56,232,255,.35)}
+.palette-count{font-size:11px;color:var(--dim);letter-spacing:.15em}
+.palette-body{display:grid;grid-template-columns:220px 1fr;min-height:0}
+#paletteCats{border-right:1px solid var(--dim);padding:14px;overflow-y:auto}
+.cat{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;font-size:11.5px;color:var(--dim);cursor:pointer;border-left:2px solid transparent;transition:.15s}
+.cat:hover{color:var(--c2)}
+.cat.on{color:var(--c2);border-left-color:var(--c);background:rgba(56,232,255,.06)}
+.cat span{font-size:10px;opacity:.6}
+#paletteList{overflow-y:auto;padding:10px}
+.cmd-item{padding:10px 14px;border:1px solid transparent;cursor:pointer;margin-bottom:4px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;transition:.12s}
+.cmd-item:hover,.cmd-item.sel{border-color:var(--c);background:rgba(56,232,255,.08)}
+.cmd-item .ci-name{font-size:13px;color:var(--c2);margin-bottom:2px}
+.cmd-item .ci-desc{font-size:11px;color:var(--dim)}
+.cmd-item .ci-cat{font-size:10px;color:var(--dim);border:1px solid var(--dim);padding:3px 8px}
+.palette-foot{padding:10px 20px;border-top:1px solid var(--dim);font-size:11px;color:var(--dim);display:flex;justify-content:space-between}
+@media(max-width:1020px){main{grid-template-columns:1fr}.left{display:none}.right{max-height:190px}.reactor-wrap{min-height:290px}.palette-body{grid-template-columns:1fr}#paletteCats{display:none}}
+/* ===== JARVIS: ИИ-МОДУЛЬ ===== */
+.jarvis-ai-chip{border-color:#7c5cff!important;color:#b9a8ff!important;box-shadow:0 0 12px rgba(124,92,255,.35)}
+#jarvisSettings{position:fixed;inset:0;z-index:300;background:rgba(1,7,11,.88);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:.22s}
+#jarvisSettings.on{opacity:1;visibility:visible}
+.js-box{width:640px;max-width:94vw;max-height:88vh;overflow:auto;background:rgba(4,20,30,.97);border:1px solid #7c5cff;box-shadow:0 0 60px rgba(124,92,255,.35);padding:22px}
+.js-box h3{font-family:'Orbitron',sans-serif;font-size:14px;letter-spacing:.22em;margin-bottom:4px;color:#cfc4ff}
+.js-box p.sub{font-size:11px;color:var(--dim);margin-bottom:16px;letter-spacing:.08em}
+.js-row{margin-bottom:12px}
+.js-row label{display:block;font-size:10px;letter-spacing:.2em;color:var(--dim);margin-bottom:5px}
+.js-row input,.js-row textarea,.js-row select{width:100%;background:rgba(2,14,20,.75);border:1px solid var(--dim);color:var(--c2);padding:9px 11px;font-family:inherit;font-size:13px;outline:none}
+.js-row input:focus,.js-row textarea:focus{border-color:#7c5cff;box-shadow:0 0 16px rgba(124,92,255,.25)}
+.js-row textarea{min-height:96px;resize:vertical;font-size:12px;line-height:1.5}
+.js-actions{display:flex;gap:9px;margin-top:16px;flex-wrap:wrap;align-items:center}
+.js-btn{padding:9px 16px;font-size:10.5px;letter-spacing:.18em;font-family:'Orbitron',sans-serif;background:rgba(124,92,255,.14);border:1px solid #7c5cff;color:#cfc4ff;cursor:pointer;transition:.18s}
+.js-btn:hover{background:#7c5cff;color:#06121a}
+.js-note{font-size:10.5px;color:var(--dim);line-height:1.5;letter-spacing:.05em}
+#jarvisThink{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:.28em;color:#b9a8ff;text-shadow:0 0 12px rgba(124,92,255,.8);opacity:0;transition:opacity .2s;pointer-events:none}
+#jarvisThink.on{opacity:1}
+</style>
+</head>
+<body>
+
+<div id="boot"><div id="bootlog"></div></div>
+
+<div id="app">
+<header>
+<div class="brand"><h1>J.A.R.V.I.S.</h1><small>JUST A RATHER VERY INTELLIGENT SYSTEM</small></div>
+<div class="hdr-right">
+<button class="chip" id="vmode" style="font-size:10px;padding:5px 10px;letter-spacing:.15em">ДЖАРВИС · RU</button>
+<span><span class="dot"></span> ONLINE</span>
+<span class="clock" id="clock">--:--:--</span>
+</div>
+</header>
+<main>
+<aside class="panel left">
+<h2>СИСТЕМЫ <span id="sysstate">АНАЛИЗ</span></h2>
+<div id="metrics"></div>
+<h2 style="margin-top:18px">ТЕЛЕМЕТРИЯ <span id="telestatus">СБОР</span></h2>
+<div id="tele"></div>
+</aside>
+<section class="center">
+<div class="reactor-wrap"><canvas id="reactor"></canvas><div id="state">ОЖИДАНИЕ</div></div>
+<div class="wave"><canvas id="wave"></canvas></div>
+</section>
+<aside class="panel right">
+<h2>ЖУРНАЛ <span id="logcount">0</span></h2>
+<div id="log"></div>
+</aside>
+</main>
+<footer>
+<div class="chips">
+<button class="chip hot" id="paletteBtn">ВСЕ КОМАНДЫ (Ctrl+K)</button>
+<button class="chip" data-cmd="полная диагностика">диагностика</button>
+<button class="chip" data-cmd="который час">время</button>
+<button class="chip" data-cmd="список программ">список программ</button>
+<button class="chip" data-cmd="включи роблокс">включи роблокс</button>
+<button class="chip" data-cmd="запусти дискорд">запусти дискорд</button>
+<button class="chip" data-cmd="открой ютуб">открой ютуб</button>
+<button class="chip" data-cmd="список браузеров">список браузеров</button>
+</div>
+<div class="inputrow">
+<input id="cmd" type="text" autocomplete="off" spellcheck="false" placeholder="Скажите или введите что угодно, сэр...">
+<button class="btn" id="mic"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2z"/></svg></button>
+<button class="btn" id="sound"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 2.2v2.1a7.5 7.5 0 0 1 0 15.4v2.1a9.5 9.5 0 0 0 0-19.6z"/></svg></button>
+<button class="btn" id="send">ОТПРАВИТЬ</button>
+</div>
+</footer>
+</div>
+
+<div id="palette" class="palette">
+<div class="palette-box">
+<div class="palette-head"><input id="paletteSearch" type="text" placeholder="Поиск команды..."><span class="palette-count" id="paletteCount">0</span></div>
+<div class="palette-body"><aside id="paletteCats"></aside><div id="paletteList"></div></div>
+<div class="palette-foot"><span>Enter — выполнить · ↑/↓ — навигация · Esc — закрыть</span><span>Ctrl+K</span></div>
+</div>
+</div>
+
+<script>
+'use strict';
+
+/* ============ УТИЛИТЫ ============ */
+function $(s){return document.querySelector(s);}
+function $$(s){return Array.prototype.slice.call(document.querySelectorAll(s));}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+function esc(s){return String(s==null?'—':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
+function copyText(t){try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(String(t));return true;}}catch(e){}return false;}
+function requestFS(){try{var e=document.documentElement;if(e.requestFullscreen)e.requestFullscreen();else if(e.webkitRequestFullscreen)e.webkitRequestFullscreen();}catch(e){}}
+function exitFS(){try{if(document.exitFullscreen)document.exitFullscreen();else if(document.webkitExitFullscreen)document.webkitExitFullscreen();}catch(e){}}
+function scrollIntoView(el,o){try{if(el&&el.scrollIntoView)el.scrollIntoView(o);}catch(e){}}
+
+var mode='idle',level=0,soundOn=true,bootTime=performance.now();
+var voiceMode='russian';try{voiceMode=localStorage.getItem('jarvisVoice')||'russian';}catch(e){}
+var voiceRate=1,voicePitch=1;
+
+/* ============ ТЕЛЕМЕТРИЯ ============ */
+var SYS={ready:false,errors:[],browser:'—',browserVer:'—',os:'—',platform:'—',userAgent:'—',cores:'—',memory:'—',maxTouch:'—',gpu:'—',gpuVendor:'—',webglVer:'—',screen:'—',viewport:'—',colorDepth:'—',pixelRatio:'—',orientation:'—',online:'—',netType:'—',downlink:'—',rtt:'—',saveData:'—',batteryLevel:'—',batteryCharging:'—',batteryTime:'—',heapUsed:null,heapTotal:null,heapLimit:null,storageQuota:'—',storageUsage:'—',language:'—',languages:'—',timezone:'—',cookies:'—',dnt:'—',protocol:'—',fps:0,cpuLoad:0,pageLoadMs:0,batteryObj:null,connObj:null};
+
+function detectBrowser(ua){if(/Edg\//.test(ua))return'Edge';if(/OPR\//.test(ua)||/Opera/.test(ua))return'Opera';if(/YaBrowser/.test(ua))return'Yandex';if(/Firefox\//.test(ua))return'Firefox';if(/Chrome\//.test(ua))return'Chrome';if(/Safari\//.test(ua)&&/Version\//.test(ua))return'Safari';if(/Trident|MSIE/.test(ua))return'IE';return'Unknown';}
+function detectBrowserVer(ua){var m;if((m=ua.match(/Edg\/([\d.]+)/)))return m[1];if((m=ua.match(/OPR\/([\d.]+)/)))return m[1];if((m=ua.match(/YaBrowser\/([\d.]+)/)))return m[1];if((m=ua.match(/Firefox\/([\d.]+)/)))return m[1];if((m=ua.match(/Chrome\/([\d.]+)/)))return m[1];if((m=ua.match(/Version\/([\d.]+).*Safari/)))return m[1];return'—';}
+function detectOS(ua){if(/Windows NT 10/.test(ua))return'Windows 10/11';if(/Windows NT 6\.3/.test(ua))return'Windows 8.1';if(/Windows NT 6\.1/.test(ua))return'Windows 7';if(/Windows/.test(ua))return'Windows';if(/Mac OS X ([\d_]+)/.test(ua))return'macOS '+ua.match(/Mac OS X ([\d_]+)/)[1].replace(/_/g,'.');if(/Android ([\d.]+)/.test(ua))return'Android '+ua.match(/Android ([\d.]+)/)[1];if(/iPhone|iPad|iPod/.test(ua))return'iOS';if(/Linux/.test(ua))return'Linux';return'Unknown';}
+
+function detectStatic(){
+  var ua=navigator.userAgent||'';
+  SYS.userAgent=ua;SYS.browser=detectBrowser(ua);SYS.browserVer=detectBrowserVer(ua);SYS.os=detectOS(ua);SYS.platform=navigator.platform||'—';
+  SYS.cores=(navigator.hardwareConcurrency||'—')+'';
+  SYS.memory=navigator.deviceMemory?navigator.deviceMemory+' ГБ':'скрыто';
+  SYS.maxTouch=(navigator.maxTouchPoints||0)+'';
+  SYS.screen=screen.width+'×'+screen.height;SYS.viewport=window.innerWidth+'×'+window.innerHeight;
+  SYS.colorDepth=screen.colorDepth+' бит';SYS.pixelRatio=(window.devicePixelRatio||1).toFixed(2);
+  SYS.orientation=(screen.orientation&&screen.orientation.type)||'—';
+  SYS.language=navigator.language||'—';
+  SYS.languages=(navigator.languages&&navigator.languages.length)?navigator.languages.join(', '):(navigator.language||'—');
+  try{SYS.timezone=Intl.DateTimeFormat().resolvedOptions().timeZone||'—';}catch(e){SYS.timezone='—';}
+  SYS.cookies=navigator.cookieEnabled?'да':'нет';
+  SYS.dnt=(navigator.doNotTrack==='1'||navigator.doNotTrack==='yes')?'вкл':'выкл';
+  SYS.protocol=(location.protocol==='https:')?'HTTPS':'HTTP';
+  try{
+    var cv=document.createElement('canvas');
+    var gl=cv.getContext('webgl2')||cv.getContext('webgl')||cv.getContext('experimental-webgl');
+    if(gl){
+      SYS.webglVer=gl.getParameter(gl.VERSION)||'—';
+      var dbg=gl.getExtension('WEBGL_debug_renderer_info');
+      if(dbg){SYS.gpuVendor=gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL)||'—';SYS.gpu=gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)||'—';}
+      else{SYS.gpuVendor=gl.getParameter(gl.VENDOR)||'—';SYS.gpu=gl.getParameter(gl.RENDERER)||'—';}
+    }
+  }catch(e){SYS.errors.push('WebGL: '+e.message);}
+  if(performance&&performance.memory){
+    SYS.heapUsed=Math.round(performance.memory.usedJSHeapSize/1048576);
+    SYS.heapTotal=Math.round(performance.memory.totalJSHeapSize/1048576);
+    SYS.heapLimit=Math.round(performance.memory.jsHeapSizeLimit/1048576);
+  }
+  SYS.online=navigator.onLine?'да':'нет';
+  SYS.connObj=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  readConn();
+  if(performance&&performance.timing){var t=performance.timing;SYS.pageLoadMs=t.loadEventEnd&&t.navigationStart?(t.loadEventEnd-t.navigationStart):0;}
+  SYS.ready=true;
+}
+function readConn(){var c=SYS.connObj;if(!c)return;SYS.netType=(c.effectiveType||c.type||'—').toUpperCase();SYS.downlink=(c.downlink!=null)?(c.downlink+' Mbps'):'—';SYS.rtt=(c.rtt!=null)?(c.rtt+' мс'):'—';SYS.saveData=c.saveData?'вкл':'выкл';}
+function detectAsync(){
+  if(navigator.getBattery){navigator.getBattery().then(function(b){SYS.batteryObj=b;readBattery();b.addEventListener('levelchange',function(){readBattery();renderTele();updateBars();});b.addEventListener('chargingchange',function(){readBattery();renderTele();updateBars();});renderTele();updateBars();}).catch(function(e){SYS.errors.push('battery: '+e);});}
+  if(navigator.storage&&navigator.storage.estimate){navigator.storage.estimate().then(function(est){SYS.storageQuota=fmtBytes(est.quota);SYS.storageUsage=fmtBytes(est.usage);renderTele();}).catch(function(e){SYS.errors.push('storage: '+e);});}
+  window.addEventListener('online',function(){SYS.online='да';renderTele();updateBars();});
+  window.addEventListener('offline',function(){SYS.online='нет';renderTele();updateBars();});
+  if(SYS.connObj&&SYS.connObj.addEventListener){SYS.connObj.addEventListener('change',function(){readConn();renderTele();updateBars();});}
+  window.addEventListener('resize',function(){SYS.viewport=window.innerWidth+'×'+window.innerHeight;SYS.orientation=(screen.orientation&&screen.orientation.type)||'—';renderTele();});
+}
+function readBattery(){var b=SYS.batteryObj;if(!b)return;SYS.batteryLevel=Math.round(b.level*100)+'%';SYS.batteryCharging=b.charging?'да':'нет';if(b.charging&&isFinite(b.chargingTime)&&b.chargingTime>0)SYS.batteryTime=fmtTime(b.chargingTime)+' до полного';else if(!b.charging&&isFinite(b.dischargingTime)&&b.dischargingTime>0)SYS.batteryTime=fmtTime(b.dischargingTime)+' до разряда';else SYS.batteryTime='—';}
+function fmtBytes(b){if(b==null)return'—';var u=['Б','КБ','МБ','ГБ','ТБ'],i=0;while(b>=1024&&i<u.length-1){b/=1024;i++;}return(Math.round(b*10)/10)+' '+u[i];}
+function fmtTime(s){if(!isFinite(s))return'—';var h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h?(h+' ч '+m+' мин'):(m+' мин');}
+
+var BAR_DEFS=[
+  {id:'cpu',name:'ЦП',calc:function(){return clamp(SYS.cpuLoad||0,0,100);}},
+  {id:'mem',name:'ПАМЯТЬ',calc:function(){if(SYS.heapUsed!=null&&SYS.heapLimit)return clamp(Math.round(SYS.heapUsed/SYS.heapLimit*100),0,100);return 12;}},
+  {id:'net',name:'СЕТЬ',calc:function(){var c=SYS.connObj;if(!c)return navigator.onLine?75:0;return clamp(Math.round((c.downlink||0)*10),0,100);}},
+  {id:'bat',name:'БАТАРЕЯ',calc:function(){if(!SYS.batteryObj)return 100;return Math.round(SYS.batteryObj.level*100);}},
+  {id:'gpu',name:'ГРАФИКА',calc:function(){var g=(SYS.gpu||'').toLowerCase(),v=(SYS.gpuVendor||'').toLowerCase();if(/nvidia|geforce|rtx|gtx/.test(g+v))return 95;if(/radeon|amd|ati/.test(g+v))return 88;if(/apple m[1-9]/.test(g))return 92;if(/intel|iris|uhd/.test(g+v))return 65;if(/swiftshader|llvmpipe/.test(g))return 20;return 60;}}
+];
+function buildMetrics(){var h='';for(var i=0;i<BAR_DEFS.length;i++){h+='<div class="metric" data-id="'+BAR_DEFS[i].id+'"><div class="row"><span>'+BAR_DEFS[i].name+'</span><b class="val">—</b></div><div class="bar"><i style="width:0%"></i></div></div>';}$('#metrics').innerHTML=h;}
+function updateBars(){
+  for(var i=0;i<BAR_DEFS.length;i++){
+    var m=BAR_DEFS[i],el=document.querySelector('.metric[data-id="'+m.id+'"]');if(!el)continue;
+    var v=clamp(Math.round(m.calc()),0,100);
+    el.querySelector('.val').textContent=v+'%';
+    var bar=el.querySelector('.bar i');bar.style.width=v+'%';
+    var color=(m.id==='bat')?((v<20)?'#ff5c6c':(v<50)?'#ffb347':'#42ffb0'):((v>85)?'#ff5c6c':(v>65)?'#ffb347':'#38e8ff');
+    bar.style.background='linear-gradient(90deg,#1a7f9c,'+color+')';bar.style.boxShadow='0 0 10px '+color;
+  }
+  var load=SYS.cpuLoad||0,st='НОРМА';if(load>60)st='НАГРУЗКА';if(load>85)st='ПЕРЕГРУЗ';
+  var el2=$('#sysstate');if(el2)el2.textContent=st;
+}
+function teleGroup(title,rows){var h='<div class="tgroup"><div class="tgroup-title">'+title+'</div><div class="tele">';for(var i=0;i<rows.length;i++){h+='<div class="k">'+rows[i][0]+'</div><div class="v '+(rows[i][2]||'')+'">'+esc(rows[i][1])+'</div>';}return h+'</div></div>';}
+function trimGpu(s){if(!s||s==='—')return'—';return s.replace(/\s*\([^)]*\)/g,'').replace(/ANGLE\s*/i,'').trim().slice(0,34);}
+function renderTele(){
+  var el=$('#tele');if(!el)return;
+  var h='';
+  h+=teleGroup('СИСТЕМА',[['ОС',SYS.os],['Окружение',SYS.browser+' '+SYS.browserVer],['Платформа',SYS.platform],['Язык',SYS.language],['Часовой пояс',SYS.timezone]]);
+  h+=teleGroup('ЖЕЛЕЗО',[['Ядра CPU',SYS.cores],['ОЗУ',SYS.memory],['GPU',trimGpu(SYS.gpu)],['WebGL',SYS.webglVer],['Тач',SYS.maxTouch]]);
+  h+=teleGroup('ЭКРАН',[['Разрешение',SYS.screen],['Окно',SYS.viewport],['Глубина',SYS.colorDepth],['Плотность',SYS.pixelRatio],['Ориентация',SYS.orientation]]);
+  h+=teleGroup('СЕТЬ',[['Онлайн',SYS.online,SYS.online==='да'?'ok':'bad'],['Тип',SYS.netType],['Скорость',SYS.downlink],['Пинг',SYS.rtt],['Экономия',SYS.saveData]]);
+  if(SYS.batteryObj)h+=teleGroup('БАТАРЕЯ',[['Уровень',SYS.batteryLevel,SYS.batteryObj.level<0.2&&!SYS.batteryObj.charging?'bad':'ok'],['Зарядка',SYS.batteryCharging],['Осталось',SYS.batteryTime]]);
+  if(SYS.heapUsed!=null)h+=teleGroup('ПАМЯТЬ JS',[['Использовано',SYS.heapUsed+' МБ'],['Выделено',SYS.heapTotal+' МБ'],['Лимит',SYS.heapLimit+' МБ']]);
+  if(SYS.storageQuota!=='—')h+=teleGroup('ХРАНИЛИЩЕ',[['Квота',SYS.storageQuota],['Использовано',SYS.storageUsage]]);
+  h+=teleGroup('ПРОИЗВОДИТЕЛЬНОСТЬ',[['FPS',Math.round(SYS.fps)],['Загрузка ЦП',Math.round(SYS.cpuLoad)+'%'],['Загрузка стр.',SYS.pageLoadMs?SYS.pageLoadMs+' мс':'—']]);
+  h+=teleGroup('БЕЗОПАСНОСТЬ',[['Протокол',SYS.protocol,SYS.protocol==='HTTPS'?'ok':'warn'],['Cookies',SYS.cookies],['DNT',SYS.dnt]]);
+  el.innerHTML=h;
+  var ts=$('#telestatus');if(ts)ts.textContent=SYS.ready?'ГОТОВО':'СБОР';
+}
+
+/* ============ FPS / CPU ============ */
+var frameTimes=[],lastFrameT=performance.now();
+function measureFrame(now){var dt=now-lastFrameT;lastFrameT=now;if(dt>0&&dt<500){frameTimes.push(dt);if(frameTimes.length>40)frameTimes.shift();}}
+function getFPS(){if(!frameTimes.length)return 60;var s=0;for(var i=0;i<frameTimes.length;i++)s+=frameTimes[i];var a=s/frameTimes.length;return a>0?1000/a:60;}
+var mainThreadLatency=0;
+function measureLatency(){var t0=performance.now();setTimeout(function(){mainThreadLatency=performance.now()-t0;SYS.cpuLoad=clamp(mainThreadLatency*4,2,100);setTimeout(measureLatency,1200);},0);}
+
+/* ============ ЗАГРУЗКА ============ */
+var BOOT_LINES=['ИНИЦИАЛИЗАЦИЯ ЯДРА............ OK','ОПРОС ОС....................... OK','ОПРОС ЖЕЛЕЗА................... OK','ОПРОС GPU...................... OK','ОПРОС СЕТИ..................... OK','ОПРОС БАТАРЕИ.................. OK','ЗАГРУЗКА ЯРЛЫКОВ............... OK','ПОИСК БРАУЗЕРОВ................ OK','ВСЕ СИСТЕМЫ В НОРМЕ'];
+function boot(){
+  var el=$('#bootlog'),i=0,j=0,cur=null;
+  function n(){
+    if(i>=BOOT_LINES.length){var c=document.createElement('div');c.className='bootline';c.innerHTML='<span class="cursor"></span>';el.appendChild(c);setTimeout(finishBoot,600);return;}
+    if(!cur){cur=document.createElement('div');cur.className='bootline';el.appendChild(cur);j=0;}
+    var l=BOOT_LINES[i];
+    if(j<l.length){cur.textContent+=l[j];j++;setTimeout(n,8);}else{i++;cur=null;setTimeout(n,130);}
+  }
+  n();
+}
+function finishBoot(){
+  $('#boot').classList.add('hide');$('#app').classList.add('on');
+  setTimeout(function(){var b=$('#boot');if(b)b.parentNode.removeChild(b);},1000);
+  var isEn=(voiceMode==='authentic');
+  var g=isEn?'All systems are operational, sir.':'Все системы в норме, сэр. Диагностика завершена.';
+  addLog('jarvis',g);speak(g);
+}
+
+/* ============ CANVAS ============ */
+var DPR=Math.min(window.devicePixelRatio||1,2);
+function fitCanvas(c){var r=c.getBoundingClientRect();if(!r.width||!r.height)return;c.width=Math.round(r.width*DPR);c.height=Math.round(r.height*DPR);c.getContext('2d').setTransform(DPR,0,0,DPR,0,0);}
+var rc=$('#reactor'),rx=rc.getContext('2d'),wc=$('#wave'),wx=wc.getContext('2d');
+function resizeAll(){fitCanvas(rc);fitCanvas(wc);}
+window.addEventListener('resize',resizeAll);
+var particles=[];for(var pi=0;pi<26;pi++)particles.push({a:rnd(0,Math.PI*2),r:rnd(0.55,1.05),s:rnd(0.15,0.6)*(Math.random()<.5?-1:1),sz:rnd(0.8,2.2),o:rnd(0.25,0.9)});
+var reactorHue=195;
+function hslCyan(a,l){return'hsla('+reactorHue+',100%,'+(l||65)+'%,'+a+')';}
+function arc(cx,cy,r,a0,a1,w,color,alpha,blur){rx.save();rx.globalAlpha=alpha;rx.strokeStyle=color;rx.lineWidth=w;rx.shadowColor=color;rx.shadowBlur=blur;rx.beginPath();rx.arc(cx,cy,r,a0,a1);rx.stroke();rx.restore();}
+function segments(cx,cy,r,rot,count,gap,w,color,alpha){rx.save();rx.translate(cx,cy);rx.rotate(rot);rx.globalAlpha=alpha;rx.strokeStyle=color;rx.lineWidth=w;rx.shadowColor=color;rx.shadowBlur=10;var step=Math.PI*2/count;for(var i=0;i<count;i++){rx.beginPath();rx.arc(0,0,r,i*step,i*step+step*(1-gap));rx.stroke();}rx.restore();}
+function ticks(cx,cy,r,rot,count,len,color,alpha){rx.save();rx.translate(cx,cy);rx.rotate(rot);rx.globalAlpha=alpha;rx.strokeStyle=color;rx.lineWidth=1;rx.shadowColor=color;rx.shadowBlur=6;for(var i=0;i<count;i++){var a=i*Math.PI*2/count,big=i%5===0,L=big?len*2:len;rx.beginPath();rx.moveTo(Math.cos(a)*r,Math.sin(a)*r);rx.lineTo(Math.cos(a)*(r+L),Math.sin(a)*(r+L));rx.stroke();}rx.restore();}
+function drawReactor(t){
+  var w=rc.clientWidth,h=rc.clientHeight;if(!w||!h)return;rx.clearRect(0,0,w,h);
+  var cx=w/2,cy=h/2,R=Math.min(w,h)*0.40,C=hslCyan(1,65);
+  rx.save();rx.translate(cx,cy);rx.rotate(t*0.55);
+  var g=rx.createLinearGradient(0,0,R,0);g.addColorStop(0,hslCyan(0,65));g.addColorStop(1,hslCyan(0.18,65));
+  rx.fillStyle=g;rx.beginPath();rx.moveTo(0,0);rx.arc(0,0,R*1.18,-0.45,0.45);rx.closePath();rx.fill();rx.restore();
+  segments(cx,cy,R*1.18,t*0.22,60,0.55,1.2,C,0.30);
+  ticks(cx,cy,R*1.06,-t*0.14,72,4,C,0.35);
+  arc(cx,cy,R*0.98,0,Math.PI*2,1,C,0.55,14);
+  segments(cx,cy,R*0.88,-t*0.40,6,0.16,3,C,0.75);
+  arc(cx,cy,R*0.74,0,Math.PI*2,1,C,0.28,10);
+  segments(cx,cy,R*0.66,t*0.62,24,0.72,1.6,hslCyan(1,78),0.45);
+  var boost=0.15+level*0.85;
+  arc(cx,cy,R*0.55,-Math.PI/2,-Math.PI/2+Math.PI*2*0.72,3,'#42ffb0',0.55*boost,16);
+  arc(cx,cy,R*0.55,Math.PI/3,Math.PI/3+Math.PI*2*0.45,3,C,0.7*boost,16);
+  for(var k=0;k<particles.length;k++){var p=particles[k];p.a+=p.s*0.012;var rr=R*p.r,x=cx+Math.cos(p.a)*rr,y=cy+Math.sin(p.a)*rr;rx.globalAlpha=p.o*(0.45+level*0.55);rx.fillStyle=hslCyan(1,78);rx.shadowColor=C;rx.shadowBlur=12;rx.beginPath();rx.arc(x,y,p.sz,0,Math.PI*2);rx.fill();}
+  rx.globalAlpha=1;rx.shadowBlur=0;
+  var pulse=1+0.07*Math.sin(t*2.4)+0.30*level,coreR=R*0.30*pulse;
+  var halo=rx.createRadialGradient(cx,cy,0,cx,cy,coreR*3.4);
+  halo.addColorStop(0,hslCyan(0.55+level*0.4,78));halo.addColorStop(0.18,hslCyan(0.35+level*0.35,65));
+  halo.addColorStop(0.5,hslCyan(0.10,65));halo.addColorStop(1,hslCyan(0,65));
+  rx.fillStyle=halo;rx.beginPath();rx.arc(cx,cy,coreR*3.4,0,Math.PI*2);rx.fill();
+  var core=rx.createRadialGradient(cx,cy,0,cx,cy,coreR);
+  core.addColorStop(0,'#ffffff');core.addColorStop(0.35,'#c9fbff');core.addColorStop(0.7,hslCyan(1,65));core.addColorStop(1,'rgba(10,90,120,0.15)');
+  rx.fillStyle=core;rx.shadowColor=hslCyan(1,78);rx.shadowBlur=60+level*70;rx.beginPath();rx.arc(cx,cy,coreR,0,Math.PI*2);rx.fill();rx.shadowBlur=0;
+}
+
+/* ============ WAVE ============ */
+var analyser=null,timeBuf=null,micStream=null;
+function drawWave(t){
+  var w=wc.clientWidth,h=wc.clientHeight;if(!w||!h)return;wx.clearRect(0,0,w,h);
+  var N=180,data=new Float32Array(N),mid=h/2;
+  if(analyser){analyser.getByteTimeDomainData(timeBuf);var step=Math.floor(timeBuf.length/N)||1;for(var i=0;i<N;i++)data[i]=(timeBuf[i*step]-128)/128;}
+  else{var amp=0.10+level*0.55;for(var j=0;j<N;j++){var xx=j/N;data[j]=amp*(Math.sin(xx*22+t*4.2)*0.6+Math.sin(xx*47-t*6.7)*0.28+Math.sin(xx*9+t*2.1)*0.35)*Math.sin(Math.PI*xx);}}
+  var grad=wx.createLinearGradient(0,0,w,0);
+  grad.addColorStop(0,hslCyan(0,65));grad.addColorStop(0.15,hslCyan(0.9,65));grad.addColorStop(0.5,hslCyan(1,78));grad.addColorStop(0.85,hslCyan(0.9,65));grad.addColorStop(1,hslCyan(0,65));
+  function dp(sc,al,bl){wx.save();wx.globalAlpha=al;wx.strokeStyle=grad;wx.lineWidth=1.8;wx.shadowColor=hslCyan(1,65);wx.shadowBlur=bl;wx.beginPath();for(var i=0;i<N;i++){var x=(i/(N-1))*w,y=mid+data[i]*(h*0.42)*sc;if(i)wx.lineTo(x,y);else wx.moveTo(x,y);}wx.stroke();wx.restore();}
+  dp(1,0.30,0);wx.save();wx.translate(0,2*mid);wx.scale(1,-1);dp(1,0.22,0);wx.restore();dp(1,1,16);
+  wx.strokeStyle=hslCyan(0.14,65);wx.lineWidth=1;wx.beginPath();wx.moveTo(0,mid);wx.lineTo(w,mid);wx.stroke();
+}
+function updateLevel(t){
+  var target;
+  if(analyser&&timeBuf){analyser.getByteTimeDomainData(timeBuf);var sum=0;for(var i=0;i<timeBuf.length;i+=4){var v=(timeBuf[i]-128)/128;sum+=v*v;}target=clamp(Math.sqrt(sum/(timeBuf.length/4))*3.2,0,1);}
+  else{target=0.18+0.06*Math.sin(t*2.1)+0.04*Math.sin(t*5.7);
+    if(mode==='listening')target+=0.14+0.09*Math.abs(Math.sin(t*9));
+    if(mode==='speaking')target+=0.20*Math.abs(Math.sin(t*7.3))+0.14*Math.abs(Math.sin(t*13.1));
+    if(mode==='thinking')target+=0.08*Math.abs(Math.sin(t*18));}
+  level+=(clamp(target,0,1)-level)*0.14;
+}
+function loop(now){var t=(now-bootTime)/1000;measureFrame(now);SYS.fps=getFPS();updateLevel(t);drawReactor(t);drawWave(t);requestAnimationFrame(loop);}
+
+/* ============ ГОЛОС ============ */
+var allVoices=[],jarvisVoice=null,ruVoice=null;
+function scoreRu(v){var n=(v.name||'').toLowerCase(),l=(v.lang||'').toLowerCase().replace('_','-');if(l.indexOf('ru')!==0)return-1000;var s=0;if(/\b(dmitri|dmitry|дмитрий|юрий|yuri|pavel|павел|максим|maxim|иван|ivan|александр|aleksandr|николай|nikolay|андрей|andrey|сергей|sergey|артём|artem)\b/.test(n))s+=200;if(n.indexOf('natural')>=0||n.indexOf('neural')>=0)s+=80;if(n.indexOf('online')>=0)s+=40;if(n.indexOf('google')>=0)s+=60;if(/\b(alena|alyona|милена|katya|irina|svetlana|tatiana|elena|anna|oksana|мария|julia|юлия|dariya|female|woman|женск)\b/.test(n))s-=500;if(n.indexOf('compact')>=0)s-=40;return s;}
+function scoreEn(v){var n=(v.name||'').toLowerCase(),l=(v.lang||'').toLowerCase().replace('_','-');var s=0;if(n.indexOf('google uk english male')>=0)s+=200;if(/\b(daniel|oliver|arthur|george|ryan|thomas|harry|james|alex|guy|brian)\b/.test(n))s+=120;if(l.indexOf('en-gb')===0)s+=80;if(l.indexOf('en')===0)s+=20;if(n.indexOf('natural')>=0||n.indexOf('neural')>=0)s+=45;if(/\b(samantha|victoria|karen|moira|tessa|fiona|serena|zira|hazel|kate|emma|female|woman|aria|jenny|sonia)\b/.test(n))s-=200;return s;}
+function pickVoices(){
+  try{allVoices=(speechSynthesis.getVoices()||[]).slice();}catch(e){return;}
+  if(!allVoices.length)return;
+  var ru=[],en=[],i;
+  for(i=0;i<allVoices.length;i++){var l=(allVoices[i].lang||'').toLowerCase();if(l.indexOf('ru')===0)ru.push(allVoices[i]);if(l.indexOf('en')===0)en.push(allVoices[i]);}
+  ru.sort(function(a,b){return scoreRu(b)-scoreRu(a);});ruVoice=ru[0]||null;
+  en.sort(function(a,b){return scoreEn(b)-scoreEn(a);});jarvisVoice=en[0]||null;
+  console.log('%c[JARVIS] RU: '+(ruVoice?ruVoice.name:'НЕТ')+' | EN: '+(jarvisVoice?jarvisVoice.name:'—'),'color:#38e8ff');
+}
+if('speechSynthesis' in window){pickVoices();speechSynthesis.onvoiceschanged=pickVoices;setTimeout(pickVoices,300);setTimeout(pickVoices,1200);}
+var actxBlip=null;
+function getAudioCtx(){if(!actxBlip)actxBlip=new(window.AudioContext||window.webkitAudioContext)();if(actxBlip.state==='suspended')actxBlip.resume();return actxBlip;}
+function jarvisBlip(){if(!soundOn)return;try{var ctx=getAudioCtx(),t=ctx.currentTime,freqs=[[1046.5,0],[1568,0.07]];for(var k=0;k<freqs.length;k++){(function(f,d){var o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(f,t+d);g.gain.setValueAtTime(0.0001,t+d);g.gain.exponentialRampToValueAtTime(0.06,t+d+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+d+0.18);o.connect(g);g.connect(ctx.destination);o.start(t+d);o.stop(t+d+0.2);})(freqs[k][0],freqs[k][1]);}}catch(e){}}
+var humNodes=null;
+function startHum(){if(!soundOn)return;try{stopHum();var ctx=getAudioCtx();var o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=60;g.gain.value=0.012;o.connect(g);g.connect(ctx.destination);o.start();var bufSize=ctx.sampleRate*2,buf=ctx.createBuffer(1,bufSize,ctx.sampleRate),data=buf.getChannelData(0);for(var i=0;i<bufSize;i++)data[i]=(Math.random()*2-1)*0.5;var n=ctx.createBufferSource();n.buffer=buf;n.loop=true;var hp=ctx.createBiquadFilter();hp.type='highpass';hp.frequency.value=3000;var g2=ctx.createGain();g2.gain.value=0.0008;n.connect(hp);hp.connect(g2);g2.connect(ctx.destination);n.start();humNodes={o:o,n:n};}catch(e){}}
+function stopHum(){try{if(humNodes){humNodes.o.stop();humNodes.n.stop();humNodes=null;}}catch(e){}}
+function chunkPhrases(text){var s=String(text).replace(/\s+/g,' ').trim();if(!s)return[];var wd=s.replace(/([.!?…])\s+/g,'$1|'),sent=wd.split('|'),out=[];for(var si=0;si<sent.length;si++){var st=sent[si].trim();if(!st)continue;if(st.length>95){var p2=st.replace(/([,;:—–])\s+/g,'$1|').split('|'),buf='';for(var pi=0;pi<p2.length;pi++){var p=p2[pi],c=buf?buf+' '+p:p;if(c.length<75)buf=c;else{if(buf)out.push(buf);buf=p;}}if(buf)out.push(buf);}else out.push(st);}return out;}
+var speakToken=0;
+function speak(text,opts){
+  opts=opts||{};if(!soundOn||!('speechSynthesis' in window))return;
+  var token=++speakToken;try{speechSynthesis.cancel();}catch(e){}
+  var useEn=(voiceMode==='authentic'),tv=useEn?jarvisVoice:ruVoice,phr=chunkPhrases(text);if(!phr.length)return;
+  jarvisBlip();setTimeout(startHum,120);
+  var baseRate=(typeof opts.rate==='number')?opts.rate:((useEn?0.93:0.88)*voiceRate);
+  var basePitch=(typeof opts.pitch==='number')?opts.pitch:((useEn?0.75:0.72)*voicePitch);
+  var gap=useEn?180:200,i=0;
+  function next(){
+    if(token!==speakToken){stopHum();return;}
+    if(i>=phr.length){stopHum();if(mode==='speaking'&&!speechSynthesis.speaking)setMode('idle');return;}
+    var u=new SpeechSynthesisUtterance(phr[i]);
+    if(tv)u.voice=tv;u.lang=useEn?'en-GB':'ru-RU';
+    u.rate=baseRate+(i%2?0.012:-0.008);u.pitch=basePitch+(i%3===0?0.010:0);u.volume=1;
+    u.onstart=function(){if(token===speakToken&&mode!=='listening')setMode('speaking');};
+    u.onend=function(){if(token===speakToken){i++;setTimeout(next,gap);}};
+    u.onerror=function(){if(token===speakToken){i++;setTimeout(next,gap);}};
+    speechSynthesis.speak(u);
+  }
+  next();
+}
+function setVoiceMode(m){
+  voiceMode=m;try{localStorage.setItem('jarvisVoice',m);}catch(e){}
+  var el=document.getElementById('vmode');if(el)el.textContent=(m==='authentic')?'JARVIS · EN':'ДЖАРВИС · RU';
+  try{speechSynthesis.cancel();}catch(e){}stopHum();
+  addLog('sys',m==='authentic'?'Голосовой модуль: английский (Paul Bettany).':'Голосовой модуль: русский (Владимир Зайцев).');
+  speak(m==='authentic'?'Voice module switched to English profile, sir.':'Голосовой модуль переключён на русский, сэр.');
+}
+
+/* ============ РАСПОЗНАВАНИЕ ============ */
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition,recog=null,listening=false;
+function initRecog(){
+  if(!SR)return null;
+  var r=new SR();r.lang='ru-RU';r.continuous=true;r.interimResults=true;r.maxAlternatives=1;
+  r.onstart=function(){listening=true;setMode('listening');$('#mic').classList.add('active');};
+  r.onend=function(){$('#mic').classList.remove('active');if(listening&&mode==='listening'){setTimeout(function(){if(listening){try{r.start();}catch(e){}}},500);}else if(mode==='listening')setMode('idle');};
+  r.onerror=function(e){if(e.error==='not-allowed'||e.error==='service-not-allowed'){listening=false;$('#mic').classList.remove('active');addLog('sys','Доступ к микрофону запрещён.');setMode('idle');}};
+  r.onresult=function(ev){var im='',fin='';for(var i=ev.resultIndex;i<ev.results.length;i++){var txt=ev.results[i][0].transcript;if(ev.results[i].isFinal)fin+=txt;else im+=txt;}if(im)$('#cmd').value=im;if(fin.trim()){$('#cmd').value='';handleCommand(fin.trim());}};
+  return r;
+}
+function toggleMic(){
+  if(!SR){addLog('sys','Среда не поддерживает распознавание речи.');return;}
+  if(!recog)recog=initRecog();
+  if(listening){listening=false;try{recog.stop();}catch(e){}$('#mic').classList.remove('active');if(mode==='listening')setMode('idle');blip(320);}
+  else{
+    if(!micStream){navigator.mediaDevices.getUserMedia({audio:true}).then(function(st){micStream=st;var ctx=new(window.AudioContext||window.webkitAudioContext)();var s=ctx.createMediaStreamSource(micStream);analyser=ctx.createAnalyser();analyser.fftSize=1024;analyser.smoothingTimeConstant=0.75;timeBuf=new Uint8Array(analyser.fftSize);s.connect(analyser);listening=true;try{recog.start();}catch(e){}blip(660);}).catch(function(){addLog('sys','Нет доступа к микрофону.');});}
+    else{listening=true;try{recog.start();}catch(e){}blip(660);}
+  }
+}
+function blip(f){if(!soundOn)return;try{var ctx=getAudioCtx(),o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.0001,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.06,ctx.currentTime+0.01);g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.16);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+0.18);}catch(e){}}
+
+/* ============ СОСТОЯНИЕ / ЛОГ ============ */
+function setMode(m){mode=m;var map={idle:'ОЖИДАНИЕ',listening:'СЛУШАЮ...',thinking:'ОБРАБОТКА...',speaking:'ОТВЕТ'};$('#state').textContent=map[m]||'ОЖИДАНИЕ';}
+var logCount=0;
+function addLog(who,text){
+  var wrap=$('#log'),d=document.createElement('div');d.className='msg '+who;
+  var lbl=(who==='user')?'ВЫ':(who==='jarvis'?'J.A.R.V.I.S.':'СИСТЕМА');
+  var ts=new Date().toLocaleTimeString('ru-RU',{hour12:false});
+  d.innerHTML='<span class="who">'+lbl+' · '+ts+'</span><span class="txt"></span>';
+  d.querySelector('.txt').textContent=text;wrap.appendChild(d);wrap.scrollTop=wrap.scrollHeight;
+  logCount++;$('#logcount').textContent=logCount;
+  while(wrap.children.length>80)wrap.removeChild(wrap.firstChild);
+}
+
+/* ============ КОНТЕКСТ ============ */
+var CTX={lastUrl:null,lastSearch:null,lastText:null,userName:null,notes:[],stopwatch:null,wakeLock:null};
+try{CTX.userName=localStorage.getItem('jarvisName')||null;}catch(e){}
+try{CTX.notes=JSON.parse(localStorage.getItem('jarvisNotes')||'[]');}catch(e){}
+function R(ru,en){return{ru:ru,en:en,action:null};}
+function RA(ru,en,action){return{ru:ru,en:en,action:action};}
+
+/* ============ БАЗЫ ЗНАНИЙ ============ */
+var KB={countries:{},elements:{},colors:{},currencies:{},languages:{},people:{},planets:{},cities:{}};
+function parseKV(str){var out={},p=str.split(';');for(var i=0;i<p.length;i++){var k=p[i].indexOf(':');if(k>0)out[p[i].substring(0,k).trim()]=p[i].substring(k+1).trim();}return out;}
+
+KB.countries=parseKV('россия:Москва;сша:Вашингтон;китай:Пекин;япония:Токио;германия:Берлин;франция:Париж;италия:Рим;испания:Мадрид;великобритания:Лондон;англия:Лондон;канада:Оттава;австралия:Канберра;бразилия:Бразилиа;индия:Нью-Дели;мексика:Мехико;аргентина:Буэнос-Айрес;египет:Каир;турция:Анкара;греция:Афины;португалия:Лиссабон;нидерланды:Амстердам;бельгия:Брюссель;швейцария:Берн;австрия:Вена;швеция:Стокгольм;норвегия:Осло;дания:Копенгаген;финляндия:Хельсинки;польша:Варшава;чехия:Прага;венгрия:Будапешт;румыния:Бухарест;болгария:София;сербия:Белград;украина:Киев;беларусь:Минск;казахстан:Астана;узбекистан:Ташкент;киргизия:Бишкек;таджикистан:Душанбе;туркменистан:Ашхабад;азербайджан:Баку;армения:Ереван;грузия:Тбилиси;молдова:Кишинёв;литва:Вильнюс;латвия:Рига;эстония:Таллин;израиль:Иерусалим;иран:Тегеран;ирак:Багдад;сирия:Дамаск;ливан:Бейрут;иордания:Амман;саудовская аравия:Эр-Рияд;оаэ:Абу-Даби;катар:Доха;кувейт:Эль-Кувейт;индонезия:Джакарта;малайзия:Куала-Лумпур;таиланд:Бангкок;вьетнам:Ханой;филиппины:Манила;сингапур:Сингапур;корея:Сеул;южная корея:Сеул;кндр:Пхеньян;монголия:Улан-Батор;пакистан:Исламабад;афганистан:Кабул;непал:Катманду;бангладеш:Дакка;мьянма:Нейпьидо;камбоджа:Пномпень;лаос:Вьентьян;юар:Претория;нигерия:Абуджа;кения:Найроби;эфиопия:Аддис-Абеба;марокко:Рабат;алжир:Алжир;тунис:Тунис;ливия:Триполи;судан:Хартум;гана:Аккра;сенегал:Дакар;танзания:Додома;уганда:Кампала;зимбабве:Хараре;ангола:Луанда;мозамбик:Мапуту;чили:Сантьяго;перу:Лима;колумбия:Богота;венесуэла:Каракас;эквадор:Кито;боливия:Сукре;уругвай:Монтевидео;парагвай:Асунсьон;куба:Гавана;новая зеландия:Веллингтон;исландия:Рейкьявик;ирландия:Дублин;хорватия:Загреб;словакия:Братислава;словения:Любляна;босния:Сараево;албания:Тирана;черногория:Подгорица');
+
+(function(){var raw='H:1:водород;He:2:гелий;Li:3:литий;Be:4:бериллий;B:5:бор;C:6:углерод;N:7:азот;O:8:кислород;F:9:фтор;Ne:10:неон;Na:11:натрий;Mg:12:магний;Al:13:алюминий;Si:14:кремний;P:15:фосфор;S:16:сера;Cl:17:хлор;Ar:18:аргон;K:19:калий;Ca:20:кальций;Fe:26:железо;Au:79:золото;Ag:47:серебро;Cu:29:медь;Hg:80:ртуть;Pb:82:свинец;Sn:50:олово;Zn:30:цинк;Ni:28:никель;Cr:24:хром;Ti:22:титан;U:92:уран';var p=raw.split(';');for(var i=0;i<p.length;i++){var x=p[i].split(':');if(x.length===3){var e={sym:x[0],num:parseInt(x[1],10),name:cap(x[2])};KB.elements[x[2]]=e;KB.elements[x[0].toLowerCase()]=e;}}})();
+
+KB.colors={'красный':'FF0000','синий':'0000FF','зелёный':'008000','зеленый':'008000','жёлтый':'FFFF00','желтый':'FFFF00','чёрный':'000000','черный':'000000','белый':'FFFFFF','серый':'808080','оранжевый':'FFA500','фиолетовый':'800080','розовый':'FFC0CB','коричневый':'A52A2A','голубой':'87CEEB','бирюзовый':'40E0D0','золотой':'FFD700','серебряный':'C0C0C0','бордовый':'800000','бежевый':'F5F5DC','лиловый':'EE82EE'};
+
+KB.currencies=parseKV('usd:Доллар США;eur:Евро;rub:Российский рубль;gbp:Фунт стерлингов;jpy:Японская йена;cny:Китайский юань;chf:Швейцарский франк;kzt:Казахстанский тенге;uah:Украинская гривна;byn:Белорусский рубль;cad:Канадский доллар;aud:Австралийский доллар;inr:Индийская рупия;krw:Южнокорейская вона;try:Турецкая лира;brl:Бразильский реал;pln:Польский злотый;czk:Чешская крона;ils:Израильский шекель;thb:Тайский бат;vnd:Вьетнамский донг;aed:Дирхам ОАЭ;zar:ЮАР рэнд;sek:Шведская крона;nok:Норвежская крона');
+
+KB.languages={'javascript':'Веб, ES2024, браузеры и Node.js','js':'JavaScript','python':'Универсальный, ML, скрипты, data science','java':'Кроссплатформенный, Android','c++':'Системы, игры, высокая производительность','cpp':'C++','c#':'Windows, Unity, .NET','c':'Системное программирование','go':'Backend, микросервисы','rust':'Системы, безопасность','swift':'iOS, macOS','kotlin':'Android, JVM','php':'Веб, WordPress','ruby':'Rails, скрипты','typescript':'JavaScript с типами','html':'Разметка веб-страниц','css':'Стили веб-страниц, каскадные таблицы','sql':'Базы данных','bash':'Оболочка Unix','powershell':'Оболочка Windows','lua':'Встраиваемый','r':'Статистика','matlab':'Математика','scala':'JVM, Big Data','haskell':'Функциональный','dart':'Flutter','perl':'Обработка текста','assembly':'Ассемблер','pascal':'Обучение','julia':'Научные вычисления','clojure':'Lisp для JVM','prolog':'Логическое программирование','objective-c':'iOS, macOS','vb':'Visual Basic','vba':'Макросы Office','solidity':'Ethereum','wasm':'WebAssembly','graphql':'API','json':'Данные','yaml':'Конфиг','xml':'Разметка','markdown':'Разметка текста'};
+
+(function(){var raw='пушкин:6 июня 1799 — русский поэт;толстой:9 сентября 1828 — русский писатель;достоевский:11 ноября 1821 — русский писатель;ленин:22 апреля 1870 — революционер;сталин:18 декабря 1878 — политик;гагарин:9 марта 1934 — первый космонавт;эйнштейн:14 марта 1879 — физик;ньютон:4 января 1643 — физик;дарвин:12 февраля 1809 — биолог;тесла:10 июля 1856 — изобретатель;эдисон:11 февраля 1847 — изобретатель;илон маск:28 июня 1971 — предприниматель;джобс:24 февраля 1955 — основатель Apple;билл гейтс:28 октября 1955 — основатель Microsoft;менделеев:8 февраля 1834 — химик;ломоносов:19 ноября 1711 — учёный;наполеон:15 августа 1769 — полководец;леонардо да винчи:15 апреля 1452 — художник;да винчи:15 апреля 1452 — Леонардо да Винчи;давинчи:15 апреля 1452 — Леонардо;леонардо:15 апреля 1452 — Леонардо да Винчи;моцарт:27 января 1756 — композитор;бетховен:17 декабря 1770 — композитор;бах:31 марта 1685 — композитор;шекспир:23 апреля 1564 — драматург;сократ:469 до н.э. — философ;платон:427 до н.э. — философ;аристотель:384 до н.э. — философ;пифагор:570 до н.э. — математик;архимед:287 до н.э. — математик;коперник:19 февраля 1473 — астроном;галилей:15 февраля 1564 — астроном;мария кюри:7 ноября 1867 — физик;рентген:27 марта 1845 — физик;королёв:12 января 1907 — конструктор ракет;циолковский:17 сентября 1857 — космонавтика;старк:29 мая 1970 — Тони Старк;тони старк:29 мая 1970 — Iron Man;гарри поттер:волшебник;холмс:Шерлок Холмс';var p=raw.split(';');for(var i=0;i<p.length;i++){var k=p[i].indexOf(':');if(k>0)KB.people[p[i].substring(0,k).trim()]=p[i].substring(k+1).trim();}})();
+
+KB.planets={'меркурий':'Самая близкая к Солнцу','венера':'Самая горячая планета','земля':'Единственная с жизнью','марс':'Красная планета','юпитер':'Самая большая','сатурн':'С кольцами','уран':'Ледяной гигант','нептун':'Самая дальняя','солнце':'Звезда G2V','луна':'Спутник Земли','плутон':'Карликовая'};
+KB.cities={'москва':3,'лондон':0,'париж':1,'берлин':1,'рим':1,'нью-йорк':-5,'лос-анджелес':-8,'пекин':8,'токио':9,'сеул':9,'дубай':4,'стамбул':3,'каир':2,'сидней':10,'сан-паулу':-3,'мехико':-6,'торонто':-5,'владивосток':10,'новосибирск':7,'екатеринбург':5,'калининград':2,'киев':2,'минск':3,'алматы':6};
+
+/* ============ ЛЕВЕНШТЕЙН ============ */
+function lev(a,b){a=a.toLowerCase();b=b.toLowerCase();var m=a.length,n=b.length;if(!m)return n;if(!n)return m;var d=[];for(var i=0;i<=m;i++){d.push([i]);for(var j=1;j<=n;j++)d[i].push(0);}for(var k=0;k<=n;k++)d[0][k]=k;for(var ii=1;ii<=m;ii++)for(var jj=1;jj<=n;jj++)d[ii][jj]=Math.min(d[ii-1][jj]+1,d[ii][jj-1]+1,d[ii-1][jj-1]+(a[ii-1]===b[jj-1]?0:1));return d[m][n];}
+function sim(a,b){var l=Math.max(a.length,b.length);return l?1-lev(a,b)/l:0;}
+
+/* ============ SMART RESOLVER ============ */
+function normalizeQuery(s){return String(s).toLowerCase().replace(/[?!.,;:"'«»()\[\]]/g,' ').replace(/\s+/g,' ').trim().replace(/^(?:язык программирования|язык|цвет|что такое|кто такой|кто такая|кто такие|кто это|расскажи (?:мне )?(?:про|о)|инфо (?:про|о)|это|какой|какая|какое|какие|подскажи|скажи)\s+/i,'').trim();}
+function resolveKB(text){
+  var q=normalizeQuery(text);if(!q||q.length<2)return null;
+  if(KB.countries[q])return R('Столица '+cap(q)+' — '+KB.countries[q]+'.','Capital: '+KB.countries[q]);
+  if(KB.elements[q])return R(KB.elements[q].name+' — символ '+KB.elements[q].sym+', № '+KB.elements[q].num+'.',KB.elements[q].name);
+  if(KB.colors[q])return R('#'+KB.colors[q]+' — '+q+'.','#'+KB.colors[q]);
+  if(KB.currencies[q])return R(q.toUpperCase()+' — '+KB.currencies[q]+'.',q.toUpperCase());
+  if(KB.languages[q])return R(cap(q)+' — '+KB.languages[q]+'.',cap(q));
+  if(KB.people[q])return R(cap(q)+': '+KB.people[q],cap(q));
+  if(KB.planets[q])return R(cap(q)+' — '+KB.planets[q]+'.',cap(q));
+  if(q.length>=4){
+    var bs=0,bk=null,bt=null;
+    function tryDB(db,type){for(var key in db){var s=sim(q,key);if(s>bs&&s>=0.78){bs=s;bk=key;bt=type;}}}
+    tryDB(KB.countries,'c');tryDB(KB.elements,'e');tryDB(KB.colors,'col');tryDB(KB.languages,'l');tryDB(KB.people,'p');tryDB(KB.planets,'pl');
+    if(bt==='c')return R('Столица '+cap(bk)+' — '+KB.countries[bk]+'.','Capital: '+KB.countries[bk]);
+    if(bt==='e')return R(KB.elements[bk].name+' — '+KB.elements[bk].sym+', № '+KB.elements[bk].num+'.',KB.elements[bk].name);
+    if(bt==='col')return R('#'+KB.colors[bk]+' — '+bk+'.','#'+KB.colors[bk]);
+    if(bt==='l')return R(cap(bk)+' — '+KB.languages[bk]+'.',cap(bk));
+    if(bt==='p')return R(cap(bk)+': '+KB.people[bk],cap(bk));
+    if(bt==='pl')return R(cap(bk)+' — '+KB.planets[bk]+'.',cap(bk));
+  }
+  return null;
+}
+
+/* ============ РЕЕСТР КОМАНД ============ */
+var CMDS=[];
+function C(cat,name,desc,re,fn){CMDS.push({cat:cat,name:name,desc:desc,re:re,fn:fn});}
+function NEVER_RE(){return/(?!)/;}
+
+/* Диагностика */
+function fullReport(){var r=['Диагностика систем, сэр.'];r.push('Устройство: '+SYS.os+'. Окружение: '+SYS.browser+' '+SYS.browserVer+'.');r.push('Процессор: '+SYS.cores+' логических ядер. Память: '+SYS.memory+'.');r.push('GPU: '+trimGpu(SYS.gpu)+'. Дисплей: '+SYS.screen+'.');r.push('Сеть: '+(SYS.online==='да'?'онлайн':'офлайн'));if(SYS.batteryObj)r.push('Батарея: '+SYS.batteryLevel);if(SYS.heapUsed!=null)r.push('JS-куча: '+SYS.heapUsed+' из '+SYS.heapLimit+' МБ.');r.push('FPS: '+Math.round(SYS.fps)+'. Загрузка ЦП: '+Math.round(SYS.cpuLoad)+'%.');return r.join(' ');}
+C('Диагностика','Полная диагностика','Отчёт обо всех системах',/(полная диагностика|полный отчёт|диагностика)/i,function(){return R(fullReport(),fullReport());});
+C('Диагностика','Железо','Инфо о железе',/(проверь железо|процессор|сколько ядер|сколько озу|hardware)/i,function(){return R('CPU: '+SYS.cores+' ядер. Память: '+SYS.memory+'. GPU: '+trimGpu(SYS.gpu)+'.',cap(SYS.cores)+' cores.');});
+C('Диагностика','Сеть','Проверка сети',/(проверь сеть|состояние сети|network)/i,function(){return R('Сеть '+(SYS.online==='да'?'активна':'отсутствует')+'. Тип: '+SYS.netType+'.',SYS.online);});
+C('Диагностика','Батарея','Проверка батареи',/(проверь батарею|батаре|battery)/i,function(){if(!SYS.batteryObj)return R('API батареи недоступно.','Unavailable.');return R('Батарея: '+SYS.batteryLevel+'.',SYS.batteryLevel);});
+C('Диагностика','GPU','Видеокарта',/(какой у меня gpu|видеокарта|gpu)/i,function(){return R('Видеокарта: '+trimGpu(SYS.gpu)+'.','GPU: '+trimGpu(SYS.gpu));});
+C('Диагностика','Экран','Разрешение',/(разрешение экрана|проверь экран|screen)/i,function(){return R('Экран: '+SYS.screen+'. DPR: '+SYS.pixelRatio+'.',SYS.screen);});
+C('Диагностика','Память','JS-память',/(проверь память|js память|heap)/i,function(){if(SYS.heapUsed==null)return R('Недоступно.','N/A');return R('JS-куча: '+SYS.heapUsed+' из '+SYS.heapLimit+' МБ.','Heap: '+SYS.heapUsed);});
+
+/* Браузер */
+C('Управление','Полный экран','Fullscreen',/(полный экран|фуллскрин|fullscreen)/i,function(){if(!document.fullscreenElement)requestFS();return R('Разворачиваю.','Fullscreen.');});
+C('Управление','Выйти','Из fullscreen',/(выйди из полного|exit fullscreen)/i,function(){if(document.fullscreenElement)exitFS();return R('Обычный режим.','Windowed.');});
+C('Управление','Печать','Print',/(напечатай|распечатай|print)/i,function(){setTimeout(function(){window.print();},200);return R('Печать.','Print.');});
+C('Управление','Вверх','Top',/(прокрути вверх|scroll up|наверх)/i,function(){window.scrollTo({top:0,behavior:'smooth'});return R('Наверх.','Top.');});
+C('Управление','Вниз','Bottom',/(прокрути вниз|scroll down|вниз)/i,function(){window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});return R('Вниз.','Bottom.');});
+
+/* Математика */
+function evalMath(expr){var clean=expr.replace(/,/g,'.').replace(/\b(пи|pi)\b/g,'Math.PI').replace(/\bsqrt\s*\(/gi,'Math.sqrt(').replace(/\^/g,'**').replace(/[^0-9+\-*/%().a-zA-Z\s]/g,'');return Function('"use strict";return ('+clean+')')();}
+C('Математика','Калькулятор','Посчитать',/^(сколько будет|посчитай|вычисли|calculate|calc)\s+(.+)/i,function(m){try{var v=evalMath(m[2]);if(typeof v==='number'&&isFinite(v)){var r=Math.round(v*1e6)/1e6;return R('Ответ: '+r+'.','Answer: '+r);}}catch(e){}return R('Не удалось.','Failed.');});
+C('Математика','Корень','√',/корень из\s+([\d.,]+)/i,function(m){var v=Math.sqrt(parseFloat(m[1].replace(',','.')));return R('√ = '+Math.round(v*1e6)/1e6,'√');});
+C('Математика','Факториал','n!',/^факториал\s+(\d+)$/i,function(m){var n=parseInt(m[1],10);if(n>170)return R('Слишком.','Too large.');var f=1;for(var i=2;i<=n;i++)f*=i;return R(n+'! = '+f,n+'! = '+f);});
+
+/* Время */
+function timeStr(){return new Date().toLocaleTimeString('ru-RU',{hour12:false});}
+function dateStr(){return new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}
+C('Время','Время','Который час',/(который час|сколько времени|what time)/i,function(){return R('Сейчас '+timeStr()+', сэр.','The time is '+timeStr());});
+C('Время','Дата','Дата',/(какая (сегодня )?дата|какое сегодня число|what.*date)/i,function(){return R('Сегодня '+dateStr()+'.','Today is '+dateStr());});
+C('Время','Таймер','Timer',/(таймер|timer)\s*(на\s*)?(\d+)\s*(сек|мин|час)?/i,function(m){var sec=parseInt(m[3],10),u=(m[4]||'сек').toLowerCase();if(u.indexOf('мин')===0)sec*=60;if(u.indexOf('час')===0)sec*=3600;setTimeout(function(){jarvisBlip();addLog('jarvis','Сэр, время вышло.');speak('Сэр, время вышло.');},sec*1000);return R('Таймер: '+sec+' с.','Timer: '+sec+' s.');});
+
+/* Генераторы */
+function genPassword(len){len=len||20;var c='abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*()-_=+',s='';var a=new Uint32Array(len);crypto.getRandomValues(a);for(var i=0;i<len;i++)s+=c[a[i]%c.length];return s;}
+C('Генераторы','Пароль','Password',/(сгенерируй пароль|generate password)/i,function(){var p=genPassword(20);copyText(p);return R('Пароль: '+p,'Password: '+p);});
+C('Генераторы','UUID','UUID',/(uuid|гуид|guid)/i,function(){var u;if(window.crypto&&crypto.randomUUID)u=crypto.randomUUID();else u='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0,v=(c==='x')?r:((r&0x3)|0x8);return v.toString(16);});copyText(u);return R('UUID: '+u,'UUID: '+u);});
+C('Генераторы','Кубик','d6',/(брось кубик|кубик|dice|d6)/i,function(){return R('Кубик: '+(Math.floor(Math.random()*6)+1),'d6');});
+C('Генераторы','Монетка','Coin',/(монет|coin)/i,function(){var v=pick(['Орёл','Решка']);return R('Монетка: '+v,'Coin: '+v);});
+C('Генераторы','Случайное число','Random',/(случайное число|random number)/i,function(){var v=Math.floor(Math.random()*100)+1;return R('Случайное: '+v,'Random: '+v);});
+
+/* Информация */
+var JOKES=[{ru:'Почему программисты путают Хэллоуин и Рождество? Потому что OCT 31 равно DEC 25.',en:'Why do programmers confuse Halloween and Christmas? Because OCT 31 equals DEC 25.'},{ru:'Есть 10 типов людей: те, кто понимает двоичную систему, и те, кто нет.',en:'There are 10 types of people.'}];
+var FACTS=[{ru:'Скорость света в вакууме — 299 792 458 м/с.',en:'Speed of light: 299,792,458 m/s.'},{ru:'Человеческий мозг потребляет около 20 ватт энергии.',en:'The human brain uses ~20 watts.'}];
+C('Информация','Шутка','Joke',/(шутк|анекдот|пошути|joke)/i,function(){var j=pick(JOKES);return R(j.ru,j.en);});
+C('Информация','Факт','Fact',/(факт|интересное|fact)/i,function(){var f=pick(FACTS);return R(f.ru,f.en);});
+C('Информация','Помощь','Commands',/(помощь|что ты умеешь|команды|справка|help)/i,function(){paletteOpen();return R('Открываю палитру.','Opening palette.');});
+C('Информация','Сколько команд','Count',/(сколько команд|статистика команд)/i,function(){return R('Всего команд: '+CMDS.length+'.','Total: '+CMDS.length);});
+C('Информация','Выход','Shutdown',/(выключ|отключ|заверши работу|пока|goodbye|shutdown)/i,function(){return RA('Завершаю. До связи, сэр.','Powering down.',function(){setTimeout(shutdown,1200);});});
+
+/* Голос */
+C('Голос','Тишина','Mute',/(тихо|замолчи|выключи звук|mute)/i,function(){soundOn=false;$('#sound').classList.add('off');return R('Заглушаю.','Muting.');});
+C('Голос','Включить','Unmute',/(включи звук|unmute)/i,function(){soundOn=true;$('#sound').classList.remove('off');return R('Звук включён.','Unmuted.');});
+
+/* Общение */
+C('Общение','Привет','Hello',/^(привет|здравствуй|хай|hi|hello|hey)/i,function(){return R('Здравствуйте, сэр. Все системы в норме.','Good day, sir.');});
+C('Общение','Как дела','How',/(как (у тебя )?дела|как ты|how are you)/i,function(){return R('Все системы в норме.','Operating nominally.');});
+C('Общение','Спасибо','Thanks',/(спасибо|благодарю|thank)/i,function(){return R('Всегда к вашим услугам, сэр.','At your service.');});
+
+/* ============ ЦЕПОЧКИ / FALLBACK ============ */
+function splitChain(text){var p=text.split(/\s+(?:и|затем|потом|а также)\s+(?=[а-яёa-z])/i);var o=[];for(var i=0;i<p.length;i++){var x=p[i].trim();if(x.length>2)o.push(x);}return o;}
+function execCmd(cmd,m){try{return cmd.fn(m)||null;}catch(e){return R('Ошибка: '+e.message,'Error.');}}
+function matchCommand(text){for(var i=0;i<CMDS.length;i++){if(CMDS[i].tabla)continue;if(!CMDS[i].re)continue;try{var m=text.match(CMDS[i].re);if(m)return{cmd:CMDS[i],m:m};}catch(e){}}return null;}
+
+/* Fallback — открывает URL по системному браузеру через Go-мост */
+function openUrl(url){
+  if(typeof window.jarvisOpenBrowser==='function'){ window.jarvisOpenBrowser(url); }
+  else { window.open(url,'_blank'); }
+}
+
+function smartFallback(text){
+  var q=text.trim(),low=q.toLowerCase();
+  if(/^https?:\/\//i.test(q)||/^[\w-]+\.(ru|com|org|net|io|dev|app|me|co)(\/|$)/i.test(q)){
+    var u=/^https?:\/\//i.test(q)?q:('https://'+q);
+    CTX.lastUrl=u;
+    openUrl(u);
+    return R('Открываю '+u,'Opening.');
+  }
+  if(/^[\w.+-]+@[\w-]+\.[a-z]{2,}$/i.test(q))return RA('Пишу на '+q,'Writing.',function(){openUrl('mailto:'+q);});
+  if(/^\+?[\d\s\-()]{7,}$/.test(q)){var t=q.replace(/[^\d+]/g,'');return RA('Звоню '+q,'Dialing.',function(){openUrl('tel:'+t);});}
+  if(/^[\d\s+\-*/^%().,a-zA-Z]+$/.test(q)&&/[0-9]/.test(q)){try{var v=evalMath(q);if(typeof v==='number'&&isFinite(v)){var r=Math.round(v*1e6)/1e6;return R('Ответ: '+r+'.','Answer: '+r);}}catch(e){}}
+  if(/^(найди|поищи|загугли|найти|поиск|ищи|search|find|google)\b/i.test(low)){
+    var term=low.replace(/^(найди|поищи|загугли|найти|поиск|ищи|search|find|google)\s*/i,'').trim();
+    if(term){CTX.lastSearch=term;openUrl('https://www.google.com/search?q='+encodeURIComponent(term));return R('Ищу «'+term+'».','Searching.');}
+  }
+  if(q.length<4)return R('Слушаю вас, сэр.','I am listening, sir.');
+  return R('Не распознал, сэр. Попробуйте: «включи роблокс», «запусти дискорд», «открой ютуб», «который час», «помощь».','Did not recognise, sir.');
+}
+
+/* ============ ГЛАВНЫЙ ОБРАБОТЧИК ============ */
+function handleCommand(raw){
+  var text=String(raw||'').trim();if(!text)return;
+  addLog('user',text);setMode('thinking');blip(520);
+  setTimeout(function(){
+    var direct=resolveKB(text);
+    if(direct){var useEn=(voiceMode==='authentic');var spoken=(useEn&&direct.en)?direct.en:(direct.ru||direct.en||'');addLog('jarvis',spoken);speak(spoken);if(!soundOn)setMode('idle');setTimeout(function(){if(mode==='speaking'&&!speechSynthesis.speaking)setMode('idle');},400);return;}
+    var parts=splitChain(text),results=[],actionQueue=[],i;
+    for(i=0;i<parts.length;i++){
+      var part=parts[i],lower=part.toLowerCase();
+      var match=matchCommand(lower);
+      var reply=match?execCmd(match.cmd,match.m):null;
+      if(!reply)reply=smartFallback(part);
+      if(reply){if(typeof reply==='string')results.push(reply);else{var useEn2=(voiceMode==='authentic');var spoken2=(useEn2&&reply.en)?reply.en:(reply.ru||reply.en||'');if(spoken2)results.push(spoken2);if(reply.action)actionQueue.push(reply.action);}}
+    }
+    if(!results.length){var fb=smartFallback(text);if(typeof fb==='string')results.push(fb);else{var useEn3=(voiceMode==='authentic');results.push((useEn3&&fb.en)?fb.en:fb.ru);if(fb.action)actionQueue.push(fb.action);}}
+    for(i=0;i<actionQueue.length;i++){try{actionQueue[i]();}catch(e){}}
+    var full=results.join(' ');addLog('jarvis',full);speak(full);
+    if(!soundOn)setMode('idle');
+    setTimeout(function(){if(mode==='speaking'&&!speechSynthesis.speaking)setMode('idle');},400);
+  },380);
+}
+
+/* ============ ПАЛИТРА ============ */
+var paletteOpenFlag=false,paletteSel=0,paletteFiltered=[],activeCat='Все',paletteDebounce=null;
+function paletteOpen(){paletteOpenFlag=true;$('#palette').classList.add('on');$('#paletteSearch').value='';paletteSel=0;renderPalette('');setTimeout(function(){try{$('#paletteSearch').focus();}catch(e){}},100);}
+function paletteClose(){paletteOpenFlag=false;$('#palette').classList.remove('on');}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
+function renderCats(){
+  var cats=['Все'],seen={'Все':1},i;
+  for(i=0;i<CMDS.length;i++)if(!seen[CMDS[i].cat]){seen[CMDS[i].cat]=1;cats.push(CMDS[i].cat);}
+  var html='';
+  for(i=0;i<cats.length;i++){var c=cats[i],n=0;if(c==='Все')n=CMDS.length;else for(var j=0;j<CMDS.length;j++)if(CMDS[j].cat===c)n++;
+    html+='<div class="cat '+(c===activeCat?'on':'')+'" data-cat="'+escapeHtml(c)+'"><span>'+escapeHtml(c)+'</span><span>'+n+'</span></div>';}
+  $('#paletteCats').innerHTML=html;
+  var els=$$('#paletteCats .cat');
+  for(i=0;i<els.length;i++){els[i].onclick=(function(cn){return function(){activeCat=cn;renderCats();renderPalette($('#paletteSearch').value);};})(els[i].dataset.cat);}
+}
+function renderPalette(filter){
+  var f=(filter||'').toLowerCase().trim();paletteFiltered=[];
+  for(var i=0;i<CMDS.length;i++){
+    var c=CMDS[i];
+    if(activeCat!=='Все'&&c.cat!==activeCat)continue;
+    if(f&&(c.name+' '+c.desc+' '+c.cat).toLowerCase().indexOf(f)<0)continue;
+    paletteFiltered.push(c);
+    if(paletteFiltered.length>=300)break;
+  }
+  if(paletteSel>=paletteFiltered.length)paletteSel=0;
+  $('#paletteCount').textContent=paletteFiltered.length+' / '+CMDS.length;
+  var html='';
+  for(var j=0;j<paletteFiltered.length;j++){var c2=paletteFiltered[j];
+    html+='<div class="cmd-item '+(j===paletteSel?'sel':'')+'" data-idx="'+j+'"><div><div class="ci-name">'+escapeHtml(c2.name)+'</div><div class="ci-desc">'+escapeHtml(c2.desc)+'</div></div><div class="ci-cat">'+escapeHtml(c2.cat)+'</div></div>';}
+  $('#paletteList').innerHTML=html;
+  var items=$$('#paletteList .cmd-item');
+  for(var k=0;k<items.length;k++){items[k].onclick=(function(idx){return function(){var c=paletteFiltered[idx];if(!c)return;paletteClose();runFromPalette(c);};})(parseInt(items[k].dataset.idx,10));}
+}
+function runFromPalette(cmd){
+  addLog('user',cmd.name);setMode('thinking');blip(520);
+  setTimeout(function(){
+    var reply=null;
+    try{
+      if(cmd.tabla){reply={ru:cmd.name+' = '+cmd.desc,en:cmd.name+' = '+cmd.desc,action:null};}
+      else{
+        var fake={input:cmd.name.toLowerCase(),groups:[],length:1,index:0};
+        try{reply=cmd.fn(fake);}catch(e){reply=null;}
+        if(!reply&&cmd.re){try{var m=cmd.name.toLowerCase().match(cmd.re);if(m)reply=cmd.fn(m);}catch(e){}}
+        if(!reply)reply=R('Команда «'+cmd.name+'» требует данных.','Command needs arguments.');
+      }
+    }catch(e){reply=R('Ошибка.','Error.');}
+    var results=[],actions=[];
+    if(typeof reply==='string')results.push(reply);
+    else if(reply){var useEn=(voiceMode==='authentic');var spoken=(useEn&&reply.en)?reply.en:(reply.ru||reply.en||'');if(spoken)results.push(spoken);if(reply.action)actions.push(reply.action);}
+    for(var k=0;k<actions.length;k++){try{actions[k]();}catch(e){}}
+    var full=results.join(' ');
+    if(full){addLog('jarvis',full);speak(full);}
+    if(!soundOn)setMode('idle');
+    setTimeout(function(){if(mode==='speaking'&&!speechSynthesis.speaking)setMode('idle');},400);
+  },200);
+}
+var palBtn=$('#paletteBtn');if(palBtn)palBtn.addEventListener('click',paletteOpen);
+var palRoot=$('#palette');if(palRoot)palRoot.addEventListener('click',function(e){if(e.target.id==='palette')paletteClose();});
+var palSearch=$('#paletteSearch');
+if(palSearch){
+  palSearch.addEventListener('input',function(e){clearTimeout(paletteDebounce);var v=e.target.value;paletteDebounce=setTimeout(function(){paletteSel=0;renderPalette(v);},120);});
+  palSearch.addEventListener('keydown',function(e){
+    if(e.key==='Escape')paletteClose();
+    else if(e.key==='ArrowDown'){e.preventDefault();paletteSel=Math.min(paletteFiltered.length-1,paletteSel+1);renderPalette(palSearch.value);var it=$$('#paletteList .cmd-item');if(it[paletteSel])scrollIntoView(it[paletteSel],{block:'nearest'});}
+    else if(e.key==='ArrowUp'){e.preventDefault();paletteSel=Math.max(0,paletteSel-1);renderPalette(palSearch.value);var it2=$$('#paletteList .cmd-item');if(it2[paletteSel])scrollIntoView(it2[paletteSel],{block:'nearest'});}
+    else if(e.key==='Enter'){e.preventDefault();var c=paletteFiltered[paletteSel];if(c){paletteClose();runFromPalette(c);}}
+  });
+}
+document.addEventListener('keydown',function(e){
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(paletteOpenFlag)paletteClose();else paletteOpen();}
+  if(e.key==='Escape'&&paletteOpenFlag)paletteClose();
+});
+
+/* ============ SHUTDOWN ============ */
+function shutdown(){
+  setMode('idle');listening=false;
+  try{if(recog)recog.stop();}catch(e){}
+  try{speechSynthesis.cancel();}catch(e){}
+  if(micStream){micStream.getTracks().forEach(function(t){t.stop();});}
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;background:#01070b;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;color:#38e8ff;font-family:Orbitron,sans-serif;letter-spacing:.4em;font-size:14px;transition:opacity 1.4s;opacity:0';
+  ov.innerHTML='<div>ОТКЛЮЧЕНИЕ СИСТЕМ...</div><div style="font-size:10px;opacity:.5">J.A.R.V.I.S. OFFLINE</div>';
+  document.body.appendChild(ov);requestAnimationFrame(function(){ov.style.opacity='1';});
+  setTimeout(function(){ov.style.opacity='0';},1800);
+}
+
+/* ============ UI ============ */
+function tickClock(){$('#clock').textContent=new Date().toLocaleTimeString('ru-RU',{hour12:false});}
+$('#mic').addEventListener('click',toggleMic);
+$('#send').addEventListener('click',function(){var v=$('#cmd').value;$('#cmd').value='';handleCommand(v);});
+$('#cmd').addEventListener('keydown',function(e){if(e.key==='Enter'){var v=e.target.value;e.target.value='';handleCommand(v);}});
+$('#sound').addEventListener('click',function(){soundOn=!soundOn;$('#sound').classList.toggle('off',!soundOn);if(!soundOn&&'speechSynthesis' in window)speechSynthesis.cancel();addLog('sys',soundOn?'Звук включён.':'Звук отключён.');blip(soundOn?720:300);});
+var chipEls=$$('.chip[data-cmd]');
+for(var ci=0;ci<chipEls.length;ci++){chipEls[ci].addEventListener('click',(function(cmdText){return function(){handleCommand(cmdText);};})(chipEls[ci].dataset.cmd));}
+document.addEventListener('keydown',function(e){if(e.code==='Space'&&document.activeElement!==$('#cmd')&&!paletteOpenFlag&&document.activeElement!==$('#paletteSearch')){e.preventDefault();toggleMic();}});
+(function(){var btn=document.getElementById('vmode');if(!btn)return;btn.textContent=(voiceMode==='authentic')?'JARVIS · EN':'ДЖАРВИС · RU';btn.addEventListener('click',function(){setVoiceMode(voiceMode==='authentic'?'russian':'authentic');});})();
+
+/* ============================================================
+   MEGA PACK — статические команды
+   ============================================================ */
+function addStatic(cat,name,desc,ruAnswer,enAnswer,action){
+  C(cat,name,desc,NEVER_RE(),(function(ruA,enA,act){
+    return function(){
+      if(act)return{ru:ruA,en:enA,action:act};
+      return R(ruA,enA);
+    };
+  })(ruAnswer,enAnswer,action));
+}
+
+/* Страны */
+(function(){
+  var pairs=[['Россия','Москва'],['США','Вашингтон'],['Китай','Пекин'],['Япония','Токио'],['Германия','Берлин'],['Франция','Париж'],['Италия','Рим'],['Испания','Мадрид'],['Великобритания','Лондон'],['Канада','Оттава'],['Австралия','Канберра'],['Бразилия','Бразилиа'],['Индия','Нью-Дели'],['Мексика','Мехико'],['Аргентина','Буэнос-Айрес'],['Египет','Каир'],['Турция','Анкара'],['Греция','Афины'],['Португалия','Лиссабон'],['Нидерланды','Амстердам'],['Бельгия','Брюссель'],['Швейцария','Берн'],['Австрия','Вена'],['Швеция','Стокгольм'],['Норвегия','Осло'],['Дания','Копенгаген'],['Финляндия','Хельсинки'],['Польша','Варшава'],['Чехия','Прага'],['Украина','Киев'],['Беларусь','Минск'],['Казахстан','Астана'],['Узбекистан','Ташкент'],['Израиль','Иерусалим'],['Иран','Тегеран'],['Ирак','Багдад'],['ЮАР','Претория'],['Кения','Найроби'],['Марокко','Рабат'],['Чили','Сантьяго'],['Перу','Лима'],['Куба','Гавана'],['Новая Зеландия','Веллингтон']];
+  for(var i=0;i<pairs.length;i++){(function(co,ca){addStatic('Столицы','Столица: '+co,'Столица страны '+co+' — '+ca,'Столица '+co+' — '+ca+'.','Capital: '+ca);})(pairs[i][0],pairs[i][1]);}
+})();
+
+/* Цвета */
+(function(){
+  var colors={'красный':'FF0000','синий':'0000FF','зелёный':'008000','зеленый':'008000','жёлтый':'FFFF00','желтый':'FFFF00','чёрный':'000000','черный':'000000','белый':'FFFFFF','серый':'808080','оранжевый':'FFA500','фиолетовый':'800080','розовый':'FFC0CB','коричневый':'A52A2A','голубой':'87CEEB','бирюзовый':'40E0D0','золотой':'FFD700','серебряный':'C0C0C0','бордовый':'800000'};
+  for(var k in colors){(function(n,h){addStatic('Цвета','Цвет: '+n,'#'+h,'#'+h+' — '+n+'.','#'+h);})(k,colors[k]);}
+})();
+
+/* Языки */
+(function(){
+  var langs={'JavaScript':'Веб, ES2024','Python':'ML, скрипты, data science','Java':'Кроссплатформенный, Android','C++':'Системы, игры','C#':'Windows, Unity','C':'Системное','Go':'Backend, микросервисы','Rust':'Системы, безопасность','Swift':'iOS, macOS','Kotlin':'Android, JVM','PHP':'Веб, WordPress','Ruby':'Rails, скрипты','TypeScript':'JS с типами','HTML':'Разметка','CSS':'Стили, каскадные таблицы','SQL':'Базы данных','Bash':'Оболочка Unix','PowerShell':'Оболочка Windows','Lua':'Встраиваемый','R':'Статистика','MATLAB':'Математика'};
+  for(var k in langs){(function(n,i){addStatic('Языки','Язык: '+n,i,n+' — '+i+'.',n);})(k,langs[k]);}
+})();
+
+/* Windows settings */
+var WIN_SET=[['Параметры дисплея','ms-settings:display'],['Звук','ms-settings:sound'],['Bluetooth','ms-settings:bluetooth'],['Wi-Fi','ms-settings:network-wifi'],['Сеть','ms-settings:network'],['Приложения','ms-settings:appsfeatures'],['Обновление Windows','ms-settings:windowsupdate'],['Персонализация','ms-settings:personalization'],['Конфиденциальность','ms-settings:privacy'],['Питание','ms-settings:powersleep'],['Клавиатура','ms-settings:keyboard'],['Мышь','ms-settings:mouse'],['Принтеры','ms-settings:printers'],['Уведомления','ms-settings:notifications'],['Панель задач','ms-settings:taskbar'],['Дата и время','ms-settings:dateandtime'],['О системе','ms-settings:about']];
+for(var wi=0;wi<WIN_SET.length;wi++){(function(item){addStatic('Windows',item[0],'Открыть: '+item[1],'Открываю '+item[0].toLowerCase()+'.','Opening.',function(){
+  if(typeof window.jarvisOpen==='function'){ window.jarvisOpen(item[1]); }
+  else { try{window.location.href=item[1];}catch(e){} }
+});})(WIN_SET[wi]);}
+
+/* ============================================================
+   ТАБЛИЧНЫЕ КОМАНДЫ
+   ============================================================ */
+function tab(cat,name,desc){CMDS.push({cat:cat,name:name,desc:desc,tabla:true,re:null,fn:null});}
+var __t0=performance.now();
+
+for(var a1=1;a1<=120;a1++)for(var b1=1;b1<=120;b1++)tab('Умножение',a1+' × '+b1,String(a1*b1));
+for(var n1=1;n1<=500;n1++)tab('Квадраты',n1+'²',String(n1*n1));
+for(var n2=1;n2<=200;n2++)tab('Кубы',n2+'³',String(n2*n2*n2));
+(function(){var f=1;for(var n=1;n<=100;n++){f*=n;tab('Факториалы',n+'!',String(f));}})();
+(function(){var O=['','один','два','три','четыре','пять','шесть','семь','восемь','девять'],T=['десять','одиннадцать','двенадцать','тринадцать','четырнадцать','пятнадцать','шестнадцать','семнадцать','восемнадцать','девятнадцать'],D=['','','двадцать','тридцать','сорок','пятьдесят','шестьдесят','семьдесят','восемьдесят','девяносто'],H=['','сто','двести','триста','четыреста','пятьсот','шестьсот','семьсот','восемьсот','девятьсот'];function w(n){if(n===0)return'ноль';var parts=[];function three(x){var s=[];if(x>=100){s.push(H[Math.floor(x/100)]);x%=100;}if(x>=20){s.push(D[Math.floor(x/10)]);x%=10;}else if(x>=10){s.push(T[x-10]);x=0;}if(x>0)s.push(O[x]);return s.join(' ');}if(n>=1000){var th=Math.floor(n/1000);parts.push(three(th),'тысяч'+(th%10===1&&th%100!==11?'а':''));n%=1000;}if(n>0)parts.push(three(n));return parts.join(' ').trim();}for(var n=0;n<=1000;n++)tab('Числа прописью',n+' прописью',w(n));})();
+(function(){var Rm=[[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];for(var n=1;n<=1000;n++){var x=n,out='';for(var i=0;i<Rm.length;i++)while(x>=Rm[i][0]){out+=Rm[i][1];x-=Rm[i][0];}tab('Римские',n+' → римское',out);}})();
+
+var __t1=performance.now();
+console.log('%c[JARVIS] Базовых команд: '+CMDS.length,'color:#42ffb0');
+console.log('%c[JARVIS] Время генерации: '+Math.round(__t1-__t0)+' мс','color:#38e8ff');
+
+/* ============================================================
+   JARVIS GO LAUNCHER — игры, программы, браузеры
+   ============================================================ */
+(function(){
+  'use strict';
+
+  var SHORTCUTS = {};
+  var BROWSERS = [];
+  var RU_TO_EN = {
+    'роблокс':'roblox','роблокс студио':'roblox','дискорд':'discord','дис':'discord',
+    'спотифай':'spotify','спотик':'spotify','телеграм':'telegram','телега':'telegram','тг':'telegram',
+    'хром':'chrome','гугл хром':'chrome','браузер':'chrome','ютуб':'youtube','ютюб':'youtube',
+    'яндекс музыка':'yandex_music','яндексмузыка':'yandex_music','зона':'zona','зону':'zona',
+    'фейсит':'faceit_ac','евро трек':'euro_truck','евро трекер':'euro_truck','евротрек':'euro_truck',
+    'етс':'euro_truck','етс2':'euro_truck','стим':'steam','прокси':'proxy'
+  };
+
+  function hasGoBridge(){
+    return typeof window.jarvisRun === 'function';
+  }
+
+  function normalizeName(name){
+    var n = String(name).toLowerCase().trim().replace(/[.!?]/g,'');
+    if (RU_TO_EN[n]) return RU_TO_EN[n];
+    var norm = n.replace(/\s+/g,'_');
+    if (RU_TO_EN[norm]) return RU_TO_EN[norm];
+    return norm;
+  }
+
+  function openTarget(name, target){
+    if (hasGoBridge()){
+      var res = window.jarvisRun(name);
+      addLog('sys', res);
+      return;
+    }
+    if (!target){ addLog('sys','❌ Нет пути для ' + name); return; }
+    try{
+      var w = window.open(target, '_blank');
+      if (!w) window.location.href = target;
+      addLog('sys', '✅ Открыто: ' + name + '\n    → ' + target);
+    }catch(e){ addLog('sys','❌ ' + e.message); }
+  }
+
+  /* ============================================================
+     БРАУЗЕРЫ
+     ============================================================ */
+  function loadBrowsers(){
+    fetch('/api/browsers')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        BROWSERS = (data && data.browsers) || [];
+        console.log('%c[JARVIS] Браузеров найдено: ' + BROWSERS.length, 'color:#42ffb0');
+        for (var i = 0; i < BROWSERS.length; i++){
+          console.log('%c[JARVIS] ' + BROWSERS[i].name + ': ' + BROWSERS[i].path, 'color:#38e8ff');
+        }
+        buildBrowserCommands();
+      })
+      .catch(function(e){ console.warn('[JARVIS] Не удалось получить список браузеров:', e); });
+  }
+
+  function findBrowser(name){
+    var q = String(name).toLowerCase().trim();
+    var aliases = {
+      'хром':'chrome','гугл':'chrome','гугл хром':'chrome','chrome':'chrome',
+      'эдж':'edge','edge':'edge','край':'edge',
+      'фаерфокс':'firefox','firefox':'firefox','мозила':'firefox','mozilla':'firefox',
+      'опера':'opera','opera':'opera',
+      'яндекс':'yandex','яндекс браузер':'yandex','yandex':'yandex',
+      'brave':'brave','брейв':'brave',
+      'vivaldi':'vivaldi','вивальди':'vivaldi'
+    };
+    var target = aliases[q] || q;
+    for (var i = 0; i < BROWSERS.length; i++){
+      if (BROWSERS[i].name.toLowerCase() === target) return BROWSERS[i];
+    }
+    return null;
+  }
+
+  function openInBrowserByName(browserName, url){
+    var b = findBrowser(browserName);
+    if (!b){
+      var list = BROWSERS.map(function(x){ return x.name; }).join(', ');
+      addLog('sys', '❌ Не нашёл браузер «' + browserName + '». Доступные: ' + list);
+      return;
+    }
+    if (hasGoBridge() && typeof window.jarvisOpenIn === 'function'){
+      var res = window.jarvisOpenIn(b.path, url);
+      addLog('sys', res);
+    } else {
+      window.open(url, '_blank');
+    }
+  }
+
+  function buildBrowserCommands(){
+    for (var i = 0; i < BROWSERS.length; i++){
+      (function(b){
+        CMDS.unshift({
+          cat: 'Браузеры',
+          name: '🌐 Открыть в ' + b.name,
+          desc: 'Запустить ' + b.name + ' и открыть Google',
+          re: NEVER_RE(),
+          fn: function(){
+            if (hasGoBridge() && typeof window.jarvisOpenIn === 'function'){
+              window.jarvisOpenIn(b.path, 'https://www.google.com');
+              addLog('sys', '✅ ' + b.name + ' запущен');
+            }
+            return R('Открываю ' + b.name + '.', 'Opening ' + b.name + '.');
+          }
+        });
+      })(BROWSERS[i]);
+    }
+    if (typeof renderCats === 'function') renderCats();
+  }
+
+  /* Голосовая команда: "открой ютуб в chrome" */
+  CMDS.unshift({
+    cat: 'Браузеры',
+    name: '🌐 Открыть в конкретном браузере',
+    desc: 'открой <сайт> в <браузер>',
+    re: /^(?:открой|запусти|включи)\s+(\S+)\s+в\s+(.+)$/i,
+    fn: function(m){
+      var url = m[1].trim();
+      var browser = m[2].trim();
+      if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+      openInBrowserByName(browser, url);
+      return R('Открываю ' + url + ' в ' + browser + '.', 'Opening in ' + browser + '.');
+    }
+  });
+
+  /* Сменить браузер по умолчанию */
+  CMDS.unshift({
+    cat: 'Браузеры',
+    name: '🌐 Сменить браузер по умолчанию',
+    desc: 'Открыть настройки Windows',
+    re: /^(?:смени браузер|сменить браузер|браузер по умолчанию|поменяй браузер)/i,
+    fn: function(){
+      if (hasGoBridge() && typeof window.jarvisOpen === 'function'){
+        window.jarvisOpen('ms-settings:defaultapps');
+      } else {
+        try { window.location.href = 'ms-settings:defaultapps'; } catch(e){}
+      }
+      return R('Открываю настройки. Выберите браузер → «По умолчанию».',
+               'Opening Windows Settings.');
+    }
+  });
+
+  /* Список браузеров */
+  CMDS.unshift({
+    cat: 'Браузеры',
+    name: '🌐 Список браузеров',
+    desc: 'Какие браузеры найдены',
+    re: /^(?:список браузеров|какие браузеры|мои браузеры|браузеры)/i,
+    fn: function(){
+      if (!BROWSERS.length) return R('Браузеры ещё не найдены.', 'Loading...');
+      var list = BROWSERS.map(function(b){ return b.name; }).join(', ');
+      addLog('sys', '🌐 Установленные браузеры: ' + list);
+      return R('Найдено ' + BROWSERS.length + ': ' + list, BROWSERS.length + ' browsers.');
+    }
+  });
+
+  /* ============================================================
+     ЯРЛЫКИ ПРОГРАММ
+     ============================================================ */
+  function loadShortcuts(){
+    fetch('shortcuts.json?' + Date.now())
+      .then(function(r){
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function(map){
+        SHORTCUTS = map || {};
+        var names = Object.keys(SHORTCUTS);
+        console.log('%c[JARVIS LAUNCHER] Загружено: ' + names.length, 'color:#42ffb0');
+        console.log('%c[JARVIS LAUNCHER] ' + names.join(', '), 'color:#38e8ff');
+        buildShortcutCommands(names);
+      })
+      .catch(function(e){
+        console.warn('[JARVIS LAUNCHER] shortcuts.json не загружен:', e);
+      });
+  }
+
+  function buildShortcutCommands(names){
+    for (var r = CMDS.length - 1; r >= 0; r--){
+      if (CMDS[r].name && CMDS[r].name.indexOf('▶ ') === 0 &&
+          CMDS[r].name.indexOf('▶ Запустить приложение') !== 0 &&
+          CMDS[r].name.indexOf('▶ Список программ') !== 0 &&
+          CMDS[r].name.indexOf('▶ Обновить ярлыки') !== 0){
+        CMDS.splice(r, 1);
+      }
+    }
+    var newCmds = [];
+    for (var i = 0; i < names.length; i++){
+      (function(name){
+        newCmds.push({
+          cat: 'Запуск',
+          name: '▶ ' + name,
+          desc: 'Открыть ' + name,
+          re: NEVER_RE(),
+          fn: function(){
+            openTarget(name, SHORTCUTS[name]);
+            return R('Запускаю ' + name + '.', 'Launching ' + name + '.');
+          }
+        });
+      })(names[i]);
+    }
+    for (var k = newCmds.length - 1; k >= 0; k--) CMDS.unshift(newCmds[k]);
+    if (typeof renderCats === 'function') renderCats();
+  }
+
+  /* Команда запуска (ПЕРВОЙ) */
+  CMDS.unshift({
+    cat: 'Запуск',
+    name: '▶ Запустить приложение',
+    desc: 'включи/запусти/открой <имя>',
+    re: /^(?:запусти|включи|вруби|открой|старт|загрузи|играй в|запустить|включить|открыть)\s+(.+)$/i,
+    fn: function(m){
+      var raw = m[1].trim();
+      var name = normalizeName(raw);
+      var keys = Object.keys(SHORTCUTS);
+      if (!keys.length && !hasGoBridge()) return R('Ярлыки ещё не загружены.','Shortcuts not loaded.');
+      if (SHORTCUTS[name]){ openTarget(name, SHORTCUTS[name]); return R('Запускаю ' + name + '.', 'Launching ' + name + '.'); }
+      for (var i = 0; i < keys.length; i++){
+        var k = keys[i];
+        if (k.indexOf(name) >= 0 || name.indexOf(k) >= 0){
+          openTarget(k, SHORTCUTS[k]);
+          return R('Запускаю ' + k + '.', 'Launching ' + k + '.');
+        }
+      }
+      var best = null, bs = 0;
+      for (var j = 0; j < keys.length; j++){
+        var sc = sim(name, keys[j].toLowerCase());
+        if (sc > bs && sc > 0.55){ bs = sc; best = keys[j]; }
+      }
+      if (best){ openTarget(best, SHORTCUTS[best]); return R('Запускаю ' + best + '.', 'Launching ' + best + '.'); }
+      if (hasGoBridge()){
+        var res = window.jarvisRun(name);
+        return R(res, res);
+      }
+      return R('Не нашёл «' + raw + '». Скажите «список программ».', 'Unknown "' + raw + '".');
+    }
+  });
+
+  /* Список программ */
+  CMDS.unshift({
+    cat: 'Запуск',
+    name: '▶ Список программ',
+    desc: 'Все доступные ярлыки',
+    re: /^(?:список программ|какие программы|что можно запустить|список игр|мои игры|список приложений)/i,
+    fn: function(){
+      if (hasGoBridge() && typeof window.jarvisList === 'function'){
+        var s = window.jarvisList();
+        addLog('sys', s);
+        return R(s, s);
+      }
+      var keys = Object.keys(SHORTCUTS);
+      if (!keys.length) return R('Список пуст.','Empty.');
+      addLog('sys', '📋 Доступно: ' + keys.length + '\n' + keys.join(' · '));
+      return R('Доступно ' + keys.length + ' программ, сэр.', keys.length + ' apps available.');
+    }
+  });
+
+  /* Обновить ярлыки */
+  CMDS.unshift({
+    cat: 'Запуск',
+    name: '▶ Обновить ярлыки',
+    desc: 'Перечитать shortcuts.json',
+    re: /^(?:обнови ярлыки|перечитай ярлыки|reload shortcuts)/i,
+    fn: function(){
+      if (hasGoBridge() && typeof window.jarvisReload === 'function'){
+        var res = window.jarvisReload();
+        addLog('sys', res);
+      }
+      loadShortcuts();
+      return R('Обновляю.','Reloading.');
+    }
+  });
+
+  /* Открыть файл по пути */
+  CMDS.unshift({
+    cat: 'Запуск',
+    name: '▶ Открыть файл по пути',
+    desc: 'открой файл <путь>',
+    re: /^(?:открой файл|открой путь)\s+(.+)$/i,
+    fn: function(m){
+      var path = m[1].trim();
+      if (hasGoBridge() && typeof window.jarvisOpen === 'function'){
+        var res = window.jarvisOpen(path);
+        addLog('sys', res);
+        return R('Открываю ' + path, 'Opening.');
+      }
+      return RA('Открываю.', 'Opening.', function(){
+        window.open('file:///' + path.replace(/\\/g,'/'), '_blank');
+      });
+    }
+  });
+
+  /* Открыть в браузере */
+  CMDS.unshift({
+    cat: 'Запуск',
+    name: '▶ Открыть в браузере',
+    desc: 'открой в браузере <url>',
+    re: /^(?:открой в браузере|открой в хроме)\s+(.+)$/i,
+    fn: function(m){
+      var url = m[1].trim();
+      if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+      if (hasGoBridge() && typeof window.jarvisOpenBrowser === 'function'){
+        window.jarvisOpenBrowser(url);
+      } else {
+        window.open(url, '_blank');
+      }
+      return R('Открываю в браузере.','Opening in browser.');
+    }
+  });
+
+  loadShortcuts();
+  loadBrowsers();
+
+  console.log('%c[JARVIS] Режим: ' + (hasGoBridge() ? 'Go (нативный)' : 'Браузер'),
+              'color:#42ffb0;font-weight:bold');
+})();
+
+/* ============ СТАРТ ============ */
+buildMetrics();detectStatic();renderTele();updateBars();detectAsync();renderCats();
+tickClock();setInterval(tickClock,1000);
+setInterval(function(){SYS.fps=getFPS();renderTele();updateBars();},1500);
+measureLatency();
+console.log('[JARVIS] Данные системы:',SYS);
+resizeAll();setTimeout(resizeAll,120);
+requestAnimationFrame(loop);
+boot();
+</script>
+<script>
+  /* ==================== ИИ-МОДУЛЬ JARVIS ==================== */
+  (function(){
+  'use strict';
+  if(window.__jarvisAI){return;} window.__jarvisAI=true;
+  
+  var AI = {on:false, cfg:{base_url:'',model:'',persona:'',voice:''}, history:[], busy:false};
+  
+  function log2(who,txt){
+    try{ if(typeof addLog==='function'){addLog(who,txt);} }catch(e){}
+  }
+  function say(txt){
+    try{ if(typeof speak==='function'){speak(txt);} }catch(e){}
+  }
+  function setState(s){
+    try{ if(typeof setMode==='function'){setMode(s);} }catch(e){}
+  }
+  
+  /* ---- окно настроек ---- */
+  function buildUI(){
+    if(document.getElementById('jarvisSettings'))return;
+    var s=document.createElement('div');
+    s.id='jarvisSettings';
+    s.innerHTML=
+    '<div class="js-box">'+
+      '<h3>ИИ-МОДУЛЬ JARVIS</h3>'+
+      '<p class="sub">МОЗГ · МОДЕЛЬ · ГОЛОС</p>'+
+      '<div class="js-row"><label>БАЗОВЫЙ URL API</label><input id="jsBase" placeholder="https://ai.starimg.ru/v1"></div>'+
+      '<div class="js-row"><label>МОДЕЛЬ</label><input id="jsModel" placeholder="deepseek-chat" list="jsModelList"><datalist id="jsModelList"></datalist></div>'+
+      '<div class="js-row"><label>API-КЛЮЧ</label><input id="jsKey" type="password" placeholder="не задан"></div>'+
+      '<div class="js-row"><label>ЛИЧНОСТЬ JARVIS (СИСТЕМНЫЙ ПРОМПТ)</label><textarea id="jsPersona"></textarea></div>'+
+      '<div class="js-row"><label>ГОЛОС</label><select id="jsVoice">'+
+        '<option value="russian">ДЖАРВИС · RU</option><option value="authentic">JARVIS · EN (Paul Bettany)</option></select></div>'+
+      '<div class="js-actions">'+
+        '<button class="js-btn" id="jsSave">СОХРАНИТЬ</button>'+
+        '<button class="js-btn" id="jsTest">ПРОВЕРИТЬ СВЯЗЬ</button>'+
+        '<button class="js-btn" id="jsModels">ЗАГРУЗИТЬ МОДЕЛИ</button>'+
+        '<button class="js-btn" id="jsClear">ОЧИСТИТЬ ИСТОРИЮ</button>'+
+        '<button class="js-btn" id="jsClose">ЗАКРЫТЬ</button>'+
+      '</div>'+
+      '<div class="js-note" id="jsNote" style="margin-top:12px">—</div>'+
+    '</div>';
+    document.body.appendChild(s);
+  
+    var th=document.createElement('div');
+    th.id='jarvisThink';th.textContent='ДУМАЮ...';
+    var rw=document.querySelector('.reactor-wrap');
+    (rw||document.body).appendChild(th);
+  
+    s.addEventListener('click',function(e){ if(e.target===s){s.classList.remove('on');} });
+    document.getElementById('jsClose').onclick=function(){s.classList.remove('on');};
+    document.getElementById('jsSave').onclick=saveCfg;
+    document.getElementById('jsTest').onclick=testApi;
+    document.getElementById('jsModels').onclick=loadModels;
+    document.getElementById('jsClear').onclick=function(){AI.history=[];note('история очищена');};
+  }
+  function note(t){var n=document.getElementById('jsNote');if(n)n.textContent=t;}
+  function openSettings(){
+    buildUI();
+    fetch('/api/config').then(function(r){return r.json();}).then(function(c){
+      document.getElementById('jsBase').value=c.base_url||'';
+      document.getElementById('jsModel').value=c.model||'';
+      document.getElementById('jsPersona').value=c.persona||'';
+      document.getElementById('jsVoice').value=c.voice||'russian';
+      var k=document.getElementById('jsKey');k.placeholder=c.has_key?('сохранён: '+c.api_key):'не задан';
+      AI.on=true; markChip();
+    }).catch(function(e){note('ошибка: '+e);});
+    document.getElementById('jarvisSettings').classList.add('on');
+  }
+  function saveCfg(){
+    var body={
+      base_url:document.getElementById('jsBase').value.trim(),
+      model:document.getElementById('jsModel').value.trim(),
+      api_key:document.getElementById('jsKey').value.trim(),
+      persona:document.getElementById('jsPersona').value,
+      voice:document.getElementById('jsVoice').value
+    };
+    fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+     .then(function(r){return r.json();})
+     .then(function(j){note(j.ok?'сохранено ✓':'ошибка');if(j.ok){try{localStorage.setItem('jarvisVoice',body.voice);}catch(e){}}})
+     .catch(function(e){note('ошибка: '+e);});
+  }
+  function loadModels(){
+    note('загружаю…');
+    fetch('/api/models').then(function(r){return r.json();}).then(function(j){
+      var dl=document.getElementById('jsModelList');dl.innerHTML='';
+      (j.models||[]).forEach(function(m){var o=document.createElement('option');o.value=m;dl.appendChild(o);});
+      note('моделей: '+((j.models||[]).length||0)+((j.models&&j.models.length)?(' — '+j.models.join(', ').slice(0,180)):''));
+    }).catch(function(e){note('ошибка: '+e);});
+  }
+  function testApi(){
+    note('проверяю…');
+    fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:[{role:'user',content:'Ответь одним словом: работаешь?'}]})})
+     .then(function(r){return r.json();})
+     .then(function(j){note(j.ok?('связь ✓ — '+String(j.content).slice(0,90)):('ошибка: '+j.error));})
+     .catch(function(e){note('ошибка: '+e);});
+  }
+  
+  /* ---- кнопка-индикатор в шапке ---- */
+  function markChip(){
+    var b=document.getElementById('aiChip');if(!b)return;
+    b.classList.toggle('jarvis-ai-chip',AI.on);
+    b.textContent=AI.on?'ИИ МОЗГ · ON':'ИИ: ВЫКЛ';
+    if(typeof speak==='function'){try{AI.cfg.voice&&localStorage.setItem('jarvisVoice',AI.cfg.voice);}catch(e){}}
+  }
+  function ensureChip(){
+    if(document.getElementById('aiChip'))return;
+    var host=document.querySelector('.hdr-right')||document.querySelector('header');
+    if(!host)return;
+    var b=document.createElement('button');
+    b.className='chip';b.id='aiChip';b.textContent='ИИ: ВЫКЛ';
+    b.style.cursor='pointer';
+    b.onclick=function(){
+      if(AI.on){AI.on=false;markChip();note('ИИ-режим выключен');}
+      else{openSettings();}
+    };
+    host.insertBefore(b,host.firstChild);
+    markChip();
+  }
+  
+  /* ---- выполнение меток действий ---- */
+  function runActions(text){
+    var re=/\[\[(OPEN|RUN|SEARCH)\s*:\s*([^\]]+)\]\]/gi,m,found=false;
+    while((m=re.exec(text))!==null){
+      found=true;
+      var kind=m[1].toUpperCase(), val=m[2].trim();
+      if(kind==='RUN'){
+        if(typeof jarvisRun==='function'){ var r=jarvisRun(val); log2('jarvis',r); say(r); }
+        else{ postOpen({name:val}); }
+      } else if(kind==='OPEN'){
+        if(typeof jarvisOpen==='function'){ jarvisOpen(val); say('Открываю, сэр.'); }
+        else{ postOpen({target:val}); }
+      } else {
+        var u='https://www.google.com/search?q='+encodeURIComponent(val);
+        if(typeof jarvisOpen==='function'){ jarvisOpen(u); say('Ищу в интернете.'); }
+        else{ postOpen({target:u}); }
+      }
+    }
+    return found;
+  }
+  function postOpen(payload){
+    fetch('/api/open',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+     .then(function(r){return r.json();})
+     .then(function(j){ log2('jarvis', j.ok?('✅ '+payload.name||payload.target):('❌ '+(j.error||'ошибка'))); })
+     .catch(function(e){ log2('jarvis','❌ '+e); });
+  }
+  function clean(text){
+    return String(text||'').replace(/\[\[(OPEN|RUN|SEARCH)[^\]]*\]\]/gi,'').replace(/\n{3,}/g,'\n\n').trim();
+  }
+  
+  /* ---- запрос к ИИ ---- */
+  function askAI(text){
+    if(!text)return Promise.resolve('');
+    AI.busy=true;
+    var th=document.getElementById('jarvisThink');
+    if(th)th.classList.add('on');
+    setState('thinking');
+    AI.history.push({role:'user',content:text});
+    if(AI.history.length>20)AI.history.splice(0,2);
+  
+    return fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({messages:AI.history})})
+      .then(function(r){return r.json();})
+      .then(function(j){
+        AI.busy=false;
+        if(th)th.classList.remove('on');
+        if(!j.ok){
+          log2('sys','[ИИ] '+(j.error||'ошибка'));
+          var friendly='Не удалось связаться с ИИ, сэр. Проверьте ключ и адрес в настройках ИИ-мозга.';
+          log2('jarvis',friendly); say(friendly);
+          setState('idle');
+          return '';
+        }
+        var full=j.content||'';
+        var cleanText=clean(full);
+        AI.history.push({role:'assistant',content:full});
+        log2('jarvis',cleanText);
+        setState('speaking');
+        say(cleanText);
+        var did=runActions(full);
+        if(!did) setTimeout(function(){ if(!AI.busy) setState('idle'); },1500);
+        return cleanText;
+      })
+      .catch(function(e){
+        AI.busy=false;
+        if(th)th.classList.remove('on');
+        log2('sys','[ИИ] '+e);
+        setState('idle');
+        return '';
+      });
+  }
+  
+  /* ---- ПЕРЕХВАТ ВСЕХ ЗАПРОСОВ ---- */
+  var orig = (typeof handleCommand==='function') ? handleCommand : null;
+  window.handleCommand = function(text){
+    text=String(text==null?'':text).trim();
+    if(!text)return;
+    if(AI.on && !AI.busy){
+      log2('user',text);
+      askAI(text);
+      return;
+    }
+    if(orig){ return orig(text); }
+  };
+  
+  setTimeout(function(){
+    ensureChip(); buildUI();
+    fetch('/api/status').then(function(r){return r.json();}).then(function(j){
+      if(j && j.ai){ AI.on=true; markChip(); }
+      log2('sys','ИИ-модуль '+(j&&j.ai?'готов ✓':'без ключа — нажми «ИИ: ВЫКЛ» в шапке'));
+    }).catch(function(){});
+  },900);
+  
+  /* ---- горячая клавиша Ctrl+Shift+I ---- */
+  document.addEventListener('keydown',function(e){
+    if(e.ctrlKey && e.shiftKey && (e.key==='I'||e.key==='и')){e.preventDefault();AI.on?openSettings():(AI.on=true,markChip(),openSettings());}
+  });
+  })();
+  </script>
+  <script>
+    /* ==================== JARVIS: КОМАНДНЫЙ ДВИЖОК ==================== */
+    (function(){
+    'use strict';
+    if(window.__jarvisCmd){return;} window.__jarvisCmd=true;
+    
+    var CATALOG=[];           /* [{name,args,desc,cat}] */
+    var MODE='cmd';           /* 'cmd' | 'text' */
+    var BUSY=false;
+    
+    /* ---------- работа с Go через биндинг, иначе через HTTP ---------- */
+    function callGo(payload){
+      return new Promise(function(resolve){
+        var done=false;
+        function viaBind(){
+          try{
+            if(typeof jarvisExec==='function'){
+              var r=jarvisExec(JSON.stringify(payload));
+              done=true; resolve(JSON.parse(r)); return true;
+            }
+          }catch(e){}
+          return false;
+        }
+        if(viaBind())return;
+        fetch('/api/exec?p='+encodeURIComponent(JSON.stringify(payload)))
+          .then(function(r){return r.json();})
+          .then(resolve)
+          .catch(function(e){resolve({ok:false,msg:'ошибка связи с ядром: '+e});});
+        setTimeout(function(){ if(!done){} },50);
+      });
+    }
+    
+    /* ---------- логика выполнения ---------- */
+    function addLog2(who,txt){
+      try{ if(typeof addLog==='function'){addLog(who,txt);} }catch(e){}
+    }
+    function say2(txt){ try{ if(typeof speak==='function'){speak(txt);} }catch(e){} }
+    function state2(s){ try{ if(typeof setMode==='function'){setMode(s);} }catch(e){} }
+    
+    function runCmd(line){
+      line=String(line||'').trim();
+      if(!line)return;
+      if(line==='help'||line==='помощь'||line==='?'){line='help';}
+      var parts=line.split(/\s+/);
+      var name=parts[0].toLowerCase();
+      var rest=line.slice(name.length).trim();
+      BUSY=true; state2('thinking');
+      callGo({cmd:name,arg:rest}).then(function(r){
+        BUSY=false;
+        if(!r){state2('idle');return;}
+        if(r.ok){ addLog2('jarvis', r.msg||'готово'); }
+        else{ addLog2('sys','⚠ '+r.msg); }
+        say2(r.ok? shortSpeak(r.msg) : 'Ошибка: '+r.msg);
+        state2('idle');
+      });
+    }
+    
+    function shortSpeak(msg){
+      var m=String(msg||'').split('\n')[0];
+      if(m.length>120)m=m.slice(0,120)+'...';
+      return m;
+    }
+    
+    /* ---------- перехват ввода ---------- */
+    var origCmd=(typeof handleCommand==='function')?handleCommand:null;
+    window.handleCommand=function(text){
+      text=String(text==null?'':text).trim();
+      if(!text)return;
+      addLog2('user',text);
+      runCmd(text);
+    };
+    
+    /* ---------- загрузка каталога команд ---------- */
+    function loadCatalog(){
+      fetch('/api/commands').then(function(r){return r.json();}).then(function(list){
+        if(!list||!list.length)return;
+        CATALOG=list;
+        buildPalette();
+      }).catch(function(e){addLog2('sys','каталог команд недоступен: '+e);});
+    }
+    
+    function buildPalette(){
+      var host=document.getElementById('paletteList');
+      var cats=document.getElementById('paletteCats');
+      if(!host)return;
+      var byCat={};
+      CATALOG.forEach(function(c){ (byCat[c.cat]=byCat[c.cat]||[]).push(c); });
+    
+      if(cats&&!cats.dataset.built){
+        cats.dataset.built='1';
+        cats.innerHTML='';
+        var all=document.createElement('div');
+        all.className='cat on'; all.dataset.cat='';
+        all.innerHTML='<b>ВСЕ</b><span>'+CATALOG.length+'</span>';
+        all.onclick=function(){ selectCat(cats,host,''); };
+        cats.appendChild(all);
+        Object.keys(byCat).sort().forEach(function(k){
+          var d=document.createElement('div');
+          d.className='cat'; d.dataset.cat=k;
+          d.innerHTML='<b>'+k.toUpperCase()+'</b><span>'+byCat[k].length+'</span>';
+          d.onclick=function(){ selectCat(cats,host,k); };
+          cats.appendChild(d);
+        });
+      }
+    
+      host.innerHTML='';
+      var all=[];
+      Object.keys(byCat).forEach(function(k){ all=all.concat(byCat[k]); });
+      renderItems(host,all);
+    }
+    
+    function selectCat(cats,host,cat){
+      Array.prototype.forEach.call(cats.children,function(el){
+        el.classList.toggle('on', (el.dataset.cat||'')===cat);
+      });
+      var byCat={};
+      CATALOG.forEach(function(c){ (byCat[c.cat]=byCat[c.cat]||[]).push(c); });
+      renderItems(host, cat? (byCat[cat]||[]) : CATALOG.slice());
+    }
+    
+    function renderItems(host,list){
+      host.innerHTML='';
+      list.forEach(function(c){
+        var d=document.createElement('div');
+        d.className='cmd-item'; d.dataset.name=c.name; d.dataset.args=c.args||'';
+        d.innerHTML='<div><div class="ci-name">'+c.name+(c.args?' <span style="opacity:.6">'+c.args+'</span>':'')+
+                   '</div><div class="ci-desc">'+c.desc+'</div></div>'+
+                   '<div class="ci-cat">'+c.cat+'</div>';
+        d.onclick=function(){ fillCmd(c); };
+        host.appendChild(d);
+      });
+    }
+    
+    function fillCmd(c){
+      var inp=document.getElementById('cmd');
+      if(inp){ inp.value=c.name+(c.args?' ':''); inp.focus();
+               inp.dataset.argmode=c.args?'1':''; }
+      var p=document.getElementById('palette');
+      if(p)p.classList.remove('on');
+    }
+    
+    /* ---------- поиск в палитре ---------- */
+    var origSearch=null;
+    document.addEventListener('DOMContentLoaded',function(){
+      var s=document.getElementById('paletteSearch');
+      if(s){
+        s.addEventListener('input',function(){
+          var q=s.value.toLowerCase().trim();
+          var list=CATALOG.filter(function(c){
+            return !q||c.name.indexOf(q)>=0||c.desc.toLowerCase().indexOf(q)>=0||c.cat.toLowerCase().indexOf(q)>=0;
+          });
+          renderItems(document.getElementById('paletteList'),list);
+          var cnt=document.getElementById('paletteCount');
+          if(cnt)cnt.textContent=list.length;
+        });
+      }
+    });
+    
+    /* ---------- горячие клавиши ---------- */
+    document.addEventListener('keydown',function(e){
+      if((e.ctrlKey||e.metaKey)&&e.key==='k'){ e.preventDefault(); openPalette(); }
+      if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='l'){ e.preventDefault(); runCmd('sysinfo'); }
+    });
+    function openPalette(){
+      var p=document.getElementById('palette');
+      if(!p)return;
+      p.classList.add('on');
+      var s=document.getElementById('paletteSearch');
+      if(s){ s.value=''; s.focus(); }
+    }
+    
+    setTimeout(function(){
+      loadCatalog();
+      var el=document.getElementById('paletteBtn');
+      if(el)el.textContent='ВСЕ КОМАНДЫ ('+CATALOG.length+') · Ctrl+K';
+      addLog2('sys','Командный модуль готов. Введите help — список команд. Примеры: sysinfo, ps chrome, killproc chrome, vol 30, openurl ya.ru, run roblox');
+    },700);
+    })();
+    </script>
+</body>
+</html>
