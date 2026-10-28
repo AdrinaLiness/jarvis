@@ -1625,9 +1625,14 @@ console.log('%c[JARVIS] Время генерации: '+Math.round(__t1-__t0)+'
   function openTarget(name, target){
     if (!target){ addLog('sys','❌ У «'+name+'» нет пути'); return; }
     try{
-      var w = window.open(target, '_blank');
-      if (!w) window.location.href = target;
-      addLog('sys', '✅ Запуск: ' + name + '\n    → ' + target);
+      if (window.Android){
+        var r = JSON.parse(Android.exec(JSON.stringify({cmd:'open_url', args:[String(target)]})));
+        addLog('sys', (r && r.ok) ? ('✅ Запуск: ' + name + '\n    → ' + target) : ('❌ ' + ((r && r.error) || 'не удалось')));
+      } else {
+        var w = window.open(target, '_blank');
+        if (!w) window.location.href = target;
+        addLog('sys', '✅ Запуск: ' + name + '\n    → ' + target);
+      }
     }catch(e){ addLog('sys','❌ ' + e.message); }
   }
 
@@ -1658,6 +1663,17 @@ console.log('%c[JARVIS] Время генерации: '+Math.round(__t1-__t0)+'
     if (best){
       openTarget(best, SHORTCUTS[best]);
       return R('Запускаю ' + best + '.', 'Launching ' + best + '.');
+    }
+        if (window.Android){
+      try{
+        var nr = JSON.parse(Android.exec(JSON.stringify({cmd:'launch_app', args:[String(rawName)]})));
+        if (nr && nr.ok){
+          var lbl = nr.label || rawName;
+          addLog('sys', '✅ Запуск: ' + lbl);
+          return R('Запускаю ' + lbl + '.', 'Launching ' + lbl + '.');
+        }
+        if (nr && nr.error) return R(nr.error, 'Unknown "' + rawName + '".');
+      }catch(e){}
     }
     return R('Не нашёл «' + rawName + '». Скажите «список программ».',
              'Unknown "' + rawName + '".');
@@ -2374,7 +2390,7 @@ function settingsImport(file){
 'use strict';
 if(!window.Android) return;
 
-var AI_PERSONA_DEFAULT='Ты — J.A.R.V.I.S. (Just A Rather Very Intelligent System), персональный ИИ-ассистент. Общайся на русском, кратко, по делу, с лёгким юмором и обращайся к пользователю как к «сэр». Ты управляешь его телефоном. Чтобы выполнить действие, в конце ответа вставь отдельной строкой метку: [[OPEN:https://...]] — открыть ссылку, [[RUN:имя]] — запустить приложение из списка ярлыков (например: telegram, youtube, chrome, spotify), [[SEARCH:запрос]] — искать в интернете. Если действие не требуется — метку не ставь. Никогда не объясняй формат меток.';
+var AI_PERSONA_DEFAULT='Ты — J.A.R.V.I.S. (Just A Rather Very Intelligent System), персональный ИИ-ассистент. Общайся на русском, кратко, по делу, с лёгким юмором и обращайся к пользователю как к «сэр». Ты управляешь его телефоном. Чтобы выполнить действие, в конце ответа вставь отдельной строкой метку: [[OPEN:https://...]] — открыть ссылку, [[RUN:название]] — запустить приложение на телефоне по названию (например: ютуб, телеграм, whatsapp, карты) или ярлыку (telegram, chrome, spotify), [[SEARCH:запрос]] — искать в интернете. Если действие не требуется — метку не ставь. Никогда не объясняй формат меток.';
 
 /* ---------- 1. Нативный TTS вместо speechSynthesis ---------- */
 window.__ttsDone=function(token){
@@ -2616,6 +2632,69 @@ window.__jarvisAISync=aiChipSync; /* внешняя синхронизация �
 /* аудит-панель на телефоне обновляется из нативного журнала */
 try{ if(typeof refreshAudit==='function') refreshAudit(); }catch(e){}
 console.log('%c[JARVIS ANDROID] Layer 2: голос, мозг, команды телефона','color:#42ffb0;font-weight:bold');
+})();
+
+</script>
+<script>
+/* ==================== JARVIS ANDROID · LAYER 3 ====================
+   Комфорт в портрете и ландшафте: компактная шапка, чипы в одну
+   строку со скроллом, крупные поля ввода в портрете, 3 колонки
+   в ландшафте, реактор уменьшается на низких экранах.            */
+(function(){
+'use strict';
+if(!window.Android) return;
+
+var st=document.createElement('style');
+st.id='jarvisOrient';
+st.textContent=
+/* ---------- ГЛОБАЛЬНО: input во flex не сжимается без min-width:0 ---------- */
+'#cmd{min-width:0}'+
+/* ---------- ГЛОБАЛЬНО: сжатие грид-колонок (min-content канвасов
+   и шапки растягивал layout до ~844px в портрете) ---------- */
+'#app>header,#app>main,#app>footer{min-width:0}'+
+'main>.panel,main>section.center{min-width:0}'+
+'section.center,.reactor-wrap,.right{overflow:hidden}'+
+'.hdr-right{flex-wrap:wrap;min-width:0;row-gap:4px}'+
+'.msg{overflow-wrap:anywhere;min-width:0}'+
+'.msg .who{white-space:normal}'+
+/* ---------- ПОРТРЕТ ---------- */
+'@media (orientation:portrait){'+
+'header{padding:8px 12px}'+
+'.brand small{display:none}'+                        /* подзаголовок — только в ландшафте */
+'.clock{font-size:14px}'+
+'#cmd{font-size:16px;padding:12px 14px}'+          /* 16px — без автозума клавиатурой */
+'#send{padding:12px 18px}'+
+'.chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-bottom:8px}'+
+'.chips::-webkit-scrollbar{display:none}'+
+'.chip{flex:0 0 auto}'+
+'.right{max-height:34vh}'+                            /* лог выше, чем 190px */
+'.reactor-wrap{min-height:0;height:28vh;flex:0 0 auto}'+
+'}'+
+/* ---------- ЛАНДШАФТ ТЕЛЕФОНА ---------- */
+'@media (orientation:landscape) and (max-height:640px){'+
+'header{padding:3px 12px}'+
+'.clock{font-size:12px}'+
+'main{grid-template-columns:210px 1fr 240px!important;gap:8px!important;padding:8px!important}'+
+'.left{display:block!important}'+                     /* вернуть метрики */
+'.right{max-height:none!important}'+
+'.center{display:flex;flex-direction:column;min-height:0}'+
+'.reactor-wrap{min-height:0!important;height:38%;flex:0 0 auto}'+
+'.msg{font-size:11px}'+
+'.chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-bottom:5px}'+
+'.chips::-webkit-scrollbar{display:none}'+
+'.chip{flex:0 0 auto;padding:3px 8px;font-size:9px}'+
+'footer{padding:5px 12px 7px}'+
+'#cmd{padding:7px 10px;font-size:12.5px}'+
+'#send{padding:7px 12px}'+
+'.audit-list{max-height:110px}'+
+'}'+
+/* ---------- ОЧЕНЬ НИЗКИЙ ЛАНДШАФТ: реактор уступает место ---------- */
+'@media (orientation:landscape) and (max-height:380px){'+
+'.reactor-wrap{display:none}'+
+'main{grid-template-columns:180px 1fr 230px!important}'+
+'}';
+document.body.appendChild(st); /* базовые <style> страницы — в body: цепляемся после них */
+console.log('%c[JARVIS ANDROID] Layer 3: ориентации настроены','color:#42ffb0;font-weight:bold');
 })();
 
 </script>
