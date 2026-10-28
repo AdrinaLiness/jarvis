@@ -1,5 +1,6 @@
 #!/bin/bash
 # Сборка J.A.R.V.I.S. Android APK (без Gradle — aapt2 + d8 + apksigner)
+# v1.2: уведомления/напоминания (NotifReceiver + R.drawable.notif_icon → нужен R.java)
 set -e
 SDK=/home/z/my-project/android-sdk
 PROJ=/home/z/my-project/jarvis_android
@@ -10,30 +11,33 @@ OUT=$PROJ/out
 export PATH="$JAVA:$PATH"
 
 rm -rf "$OUT"
-mkdir -p "$OUT/classes" "$OUT/dex" "$PROJ/build"
+mkdir -p "$OUT/classes" "$OUT/dex" "$OUT/gen" "$PROJ/build"
 
-echo "[1/6] javac..."
-"$JAVA/javac" --release 8 -nowarn -classpath "$PLAT" \
-  -d "$OUT/classes" \
-  "$PROJ"/src/com/adrina/jarvis/*.java
-ls "$OUT/classes/com/adrina/jarvis/" | head -3
-
-echo "[2/6] d8 (dex)..."
-"$BT/d8" --release --lib "$PLAT" --min-api 24 \
-  --output "$OUT/dex" $(find "$OUT/classes" -name "*.class")
-ls -la "$OUT/dex/"
-
-echo "[3/6] aapt2 compile + link..."
+echo "[1/6] aapt2 compile + link (+ R.java)..."
 "$BT/aapt2" compile --dir "$PROJ/res" -o "$OUT/res.zip"
 "$BT/aapt2" link \
   -o "$OUT/jarvis-unsigned.apk" \
   -I "$PLAT" \
   --manifest "$PROJ/AndroidManifest.xml" \
   -A "$PROJ/assets" \
+  --java "$OUT/gen" \
   --min-sdk-version 24 --target-sdk-version 34 \
-  --version-code 2 --version-name 1.1 \
+  --version-code 3 --version-name 1.2 \
   --auto-add-overlay \
   "$OUT/res.zip"
+ls "$OUT/gen/com/adrina/jarvis/" 2>/dev/null
+
+echo "[2/6] javac..."
+"$JAVA/javac" --release 8 -nowarn -classpath "$PLAT" \
+  -d "$OUT/classes" \
+  "$OUT/gen/com/adrina/jarvis/R.java" \
+  "$PROJ"/src/com/adrina/jarvis/*.java
+ls "$OUT/classes/com/adrina/jarvis/" | head -5
+
+echo "[3/6] d8 (dex)..."
+"$BT/d8" --release --lib "$PLAT" --min-api 24 \
+  --output "$OUT/dex" $(find "$OUT/classes" -name "*.class")
+ls -la "$OUT/dex/"
 
 echo "[4/6] classes.dex → apk..."
 cd "$OUT/dex" && zip -q -u "$OUT/jarvis-unsigned.apk" classes.dex && cd "$SDK"
@@ -49,8 +53,8 @@ if [ ! -f "$KS" ]; then
     -dname "CN=JARVIS, OU=AdrinaLiness, O=AdrinaLiness, C=RU" >/dev/null 2>&1
 fi
 "$BT/apksigner" sign --ks "$KS" --ks-pass pass:jarvis2026 \
-  --out "$PROJ/JARVIS-v1.1.apk" "$OUT/jarvis-aligned.apk"
-"$BT/apksigner" verify "$PROJ/JARVIS-v1.1.apk" && echo "APK OK"
+  --out "$PROJ/JARVIS-v1.2.apk" "$OUT/jarvis-aligned.apk"
+"$BT/apksigner" verify "$PROJ/JARVIS-v1.2.apk" && echo "APK OK"
 
-ls -la "$PROJ/JARVIS-v1.1.apk"
-"$BT/aapt2" dump badging "$PROJ/JARVIS-v1.1.apk" | head -8
+ls -la "$PROJ/JARVIS-v1.2.apk"
+"$BT/aapt2" dump badging "$PROJ/JARVIS-v1.2.apk" | head -8
