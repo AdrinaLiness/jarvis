@@ -2,6 +2,9 @@ package com.adrina.jarvis;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlarmManager;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -64,7 +67,11 @@ public class MainActivity extends Activity {
     private static final String K_SETTINGS = "settings_json";
     private static final int REQ_STT = 7001;
     private static final int REQ_MIC = 7002;
+    private static final int REQ_PERMS = 7003; /* микрофон + уведомления одним диалогом */
     private static final int AUDIT_MAX = 60;
+    private static final String K_NOTIFS = "notifs_json"; /* список запланированных напоминаний */
+    /** Живой экземпляр — NotifReceiver передаёт срабатывания в WebView. */
+    private static MainActivity inst;
 
     private WebView web;
     private TextToSpeech tts;
@@ -87,12 +94,22 @@ public class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        inst = this;
+        NotifReceiver.ensureChannel(this);
 
-        // Разрешение на микрофон запрашиваем сразу — нужно для голосового ввода
+        // Разрешения одним диалогом: микрофон (голос) + уведомления (напоминания,
+        // Android 13+ требует рантайм-запрос POST_NOTIFICATIONS)
+        ArrayList<String> need = new ArrayList<>();
         if (checkSelfPermission("android.permission.RECORD_AUDIO")
                 != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{"android.permission.RECORD_AUDIO"}, REQ_MIC);
+            need.add("android.permission.RECORD_AUDIO");
         }
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                        != PackageManager.PERMISSION_GRANTED) {
+            need.add("android.permission.POST_NOTIFICATIONS");
+        }
+        if (!need.isEmpty()) requestPermissions(need.toArray(new String[0]), REQ_PERMS);
 
         initTts();
 
@@ -448,13 +465,8 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String vibrate(int ms) {
-            try {
-                Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-                if (v != null && v.hasVibrator()) v.vibrate(Math.max(10, Math.min(3000, ms)));
-                return "{\"ok\":true}";
-            } catch (Exception e) {
-                return "{\"ok\":false}";
-            }
+            vibrateSafe(ms);
+            return "{\"ok\":true}";
         }
 
         @JavascriptInterface
@@ -588,6 +600,101 @@ public class MainActivity extends Activity {
             }
             case "torch_on": return torchResult(true);
             case "torch_off": return torchResult(false);
+            /* ==================== УВЕДОМЛЕНИЯ (v1.2) ==================== */
+            case "notify": {
+                String title = a0.isEmpty() ? "J.A.R.V.I.S." : a0;
+                String err = postNotifNow("n" + System.currentTimeMillis(),
+                        title, str(args, 1));
+                if (err != null) return jsonErr(err);
+                return jsonOk("Уведомление отправлено, сэр");
+            }
+            case "notify_test": {
+                String err = postNotifNow("test" + System.currentTimeMillis(),
+                        "\uD83D\uDD14 ТЕСТ СВЯЗИ", "Уведомления работают, сэр!");
+                if (err != null) return jsonErr(err);
+                vibrateSafe(180);
+                return jsonOk("Уведомления работают, сэр");
+            }
+            case "remind_in": {
+                long sec;
+                try { sec = Long.parseLong(a0.trim()); }
+                catch (Exception e) { return jsonErr("Не понял интервал, сэр"); }
+                if (sec < 5) return jsonErr("Интервал слишком короткий, сэр — минимум 5 секунд");
+                if (sec > 2592000L) return jsonErr("Слишком длинный интервал, сэр — максимум 30 дней");
+                String text = str(args, 1);
+                String label = str(args, 2);
+                if (label.isEmpty()) label = "через " + fmtDuration(sec);
+                String id = "r" + System.currentTimeMillis();
+                scheduleNotif(id, System.currentTimeMillis() + sec * 1000L,
+                        "⏰ НАПОМИНАНИЕ", text.isEmpty() ? "Напоминание, сэр" : text);
+                return jsonOk("Принято, сэр. Напомню " + label
+                        + (text.isEmpty() ? "." : ": «" + text + "»"));
+            }
+            case "timer_start": {
+                long sec;
+                try { sec = Long.parseLong(a0.trim()); }
+                catch (Exception e) { return jsonErr("Не понял интервал, сэр"); }
+                if (sec < 5) return jsonErr("Интервал слишком короткий, сэр — минимум 5 секунд");
+                if (sec > 2592000L) return jsonErr("Слишком длинный интервал, сэр — максимум 30 дней");
+                String id = "t" + System.currentTimeMillis();
+                scheduleNotif(id, System.currentTimeMillis() + sec * 1000L,
+                        "⏰ ТАЙМЕР", "Время вышло, сэр!");
+                return jsonOk("Таймер на " + fmtDuration(sec)
+                        + " запущен, сэр — пришлю уведомление");
+            }
+            case "notif_list": {
+                List<JSONObject> items = sortedNotifs();
+                if (items.isEmpty()) return jsonOk("Активных напоминаний нет, сэр");
+                long now = System.currentTimeMillis();
+                StringBuilder sb = new StringBuilder("Активные напоминания, сэр:\n");
+                for (int k = 0; k < items.size(); k++) {
+                    JSONObject o = items.get(k);
+                    long left = Math.max(0, (o.optLong("at") - now) / 1000L);
+                    String what;
+                    if ("⏰ ТАЙМЕР".equals(o.optString("title"))) {
+                        what = "таймер";
+                    } else {
+                        what = o.optString("text", "");
+                        if (what.isEmpty() || "Напоминание, сэр".equals(what)) {
+                            what = o.optString("title", "напоминание");
+                        }
+                    }
+                    sb.append(k + 1).append(". через ").append(fmtDuration(left))
+                      .append(" — ").append(what).append('\n');
+                }
+                return jsonOk(sb.toString().trim());
+            }
+            case "notif_cancel_all": {
+                JSONArray arr = loadNotifs();
+                boolean had = arr.length() > 0;
+                AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+                for (int k = 0; k < arr.length(); k++) {
+                    try { am.cancel(notifAlarmPI(arr.getJSONObject(k).optString("id"))); }
+                    catch (Exception ignored) { }
+                }
+                saveNotifs(new JSONArray());
+                try {
+                    NotificationManager nm = (NotificationManager)
+                            getSystemService(Context.NOTIFICATION_SERVICE);
+                    nm.cancelAll();
+                } catch (Exception ignored) { }
+                return jsonOk(had ? "Отменил все напоминания и таймеры, сэр"
+                        : "Активных напоминаний и не было, сэр");
+            }
+            case "notif_cancel": {
+                int num;
+                try { num = Integer.parseInt(a0.trim()); }
+                catch (Exception e) {
+                    return jsonErr("Какое напоминание отменить, сэр? Скажите: покажи напоминания");
+                }
+                List<JSONObject> items = sortedNotifs();
+                if (num < 1 || num > items.size()) {
+                    return jsonErr("Нет напоминания с номером " + num + ", сэр");
+                }
+                String id = items.get(num - 1).optString("id");
+                cancelNotifById(id);
+                return jsonOk("Отменил напоминание №" + num + ", сэр");
+            }
             case "open_settings": {
                 try {
                     startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));
@@ -827,6 +934,136 @@ public class MainActivity extends Activity {
         return 1.0 - (double) dist / Math.max(la, lb);
     }
 
+    /* ==================== УВЕДОМЛЕНИЯ И НАПОМИНАНИЯ (v1.2) ==================== */
+
+    /** Немедленное уведомление. Возвращает null при успехе, иначе текст ошибки. */
+    private String postNotifNow(String id, String title, String text) {
+        try {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(
+                    "android.permission.POST_NOTIFICATIONS")
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},
+                        REQ_PERMS);
+                return "Нет разрешения на уведомления — отправил запрос, разрешите и повторите, сэр";
+            }
+            NotificationManager nm = (NotificationManager)
+                    getSystemService(Context.NOTIFICATION_SERVICE);
+            nm.notify(id.hashCode(),
+                    NotifReceiver.buildNotif(this, title, text,
+                            NotifReceiver.tapIntent(this)));
+            return null;
+        } catch (Exception e) {
+            return "Ошибка уведомления: " + e.getMessage();
+        }
+    }
+
+    /** Запланировать напоминание: список в prefs + будильник AlarmManager. */
+    private void scheduleNotif(String id, long atMs, String title, String text) {
+        try {
+            JSONArray arr = loadNotifs();
+            JSONObject o = new JSONObject();
+            o.put("id", id);
+            o.put("at", atMs);
+            o.put("title", title);
+            o.put("text", text);
+            arr.put(o);
+            saveNotifs(arr);
+            AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            PendingIntent pi = notifAlarmPI(id);
+            /* Точный будильник: Android 12 — по умолчанию разрешён; 13+ — если
+               пользователь не выдал «Будильники и напоминания», берём неточный
+               (в обычном режиме срабатывает в ту же секунду). */
+            boolean exact = true;
+            if (Build.VERSION.SDK_INT >= 31) {
+                try { exact = am.canScheduleExactAlarms(); } catch (Exception ee) { exact = false; }
+            }
+            if (exact) {
+                try {
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMs, pi);
+                    return;
+                } catch (Exception ignored) { }
+            }
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMs, pi);
+        } catch (Exception e) {
+            toast("Ошибка планирования напоминания: " + e.getMessage());
+        }
+    }
+
+    /** PendingIntent будильника: matching по requestCode + компоненту (extras не участвуют). */
+    private PendingIntent notifAlarmPI(String id) {
+        Intent i = new Intent(this, NotifReceiver.class);
+        return PendingIntent.getBroadcast(this, id.hashCode(), i,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    /** Отменить запланированное напоминание по id. */
+    private void cancelNotifById(String id) {
+        try {
+            AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            am.cancel(notifAlarmPI(id));
+            JSONArray arr = loadNotifs();
+            JSONArray out = new JSONArray();
+            for (int k = 0; k < arr.length(); k++) {
+                JSONObject o = arr.getJSONObject(k);
+                if (!id.equals(o.optString("id"))) out.put(o);
+            }
+            saveNotifs(out);
+        } catch (Exception ignored) { }
+    }
+
+    private JSONArray loadNotifs() {
+        try { return new JSONArray(prefs.getString(K_NOTIFS, "[]")); }
+        catch (Exception e) { return new JSONArray(); }
+    }
+
+    private void saveNotifs(JSONArray a) {
+        prefs.edit().putString(K_NOTIFS, a.toString()).apply();
+    }
+
+    /** Запланированные напоминания по времени срабатывания. */
+    private List<JSONObject> sortedNotifs() {
+        List<JSONObject> items = new ArrayList<>();
+        JSONArray arr = loadNotifs();
+        for (int k = 0; k < arr.length(); k++) {
+            try { items.add(arr.getJSONObject(k)); } catch (Exception ignored) { }
+        }
+        items.sort((x, y) -> Long.compare(x.optLong("at"), y.optLong("at")));
+        return items;
+    }
+
+    /** «90 сек», «5 мин», «1 ч 30 мин» — для подтверждений и списка. */
+    private static String fmtDuration(long sec) {
+        if (sec < 60) return sec + " сек";
+        long h = sec / 3600;
+        long m = (sec % 3600 + 30) / 60; /* округление до минуты */
+        if (m >= 60) { h++; m = 0; }
+        if (h > 0 && m > 0) return h + " ч " + m + " мин";
+        if (h > 0) return h + " ч";
+        return m + " мин";
+    }
+
+    private void vibrateSafe(int ms) {
+        try {
+            Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (v != null && v.hasVibrator()) v.vibrate(Math.max(10, Math.min(3000, ms)));
+        } catch (Exception ignored) { }
+    }
+
+    /** NotifReceiver → WebView: напоминание сработало (лог + озвучка), если приложение живо. */
+    static void pushNotifFired(final String id, final String title, final String text) {
+        final MainActivity m = inst;
+        if (m == null || m.web == null) return;
+        m.runOnUiThread(() -> {
+            try {
+                m.web.evaluateJavascript(
+                        "window.__jarvisNotifFired && __jarvisNotifFired("
+                                + quoteJs(id == null ? "" : id) + ","
+                                + quoteJs(title == null ? "" : title) + ","
+                                + quoteJs(text == null ? "" : text) + ");", null);
+            } catch (Exception ignored) { }
+        });
+    }
+
     private JSONObject batteryJson() {
         Intent i = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         JSONObject o = new JSONObject();
@@ -911,10 +1148,17 @@ public class MainActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        if (requestCode == REQ_MIC) {
-            boolean ok = grantResults.length > 0
-                    && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-            if (!ok) toast("Без микрофона голосовой ввод не работает, сэр");
+        if (requestCode == REQ_PERMS || requestCode == REQ_MIC) {
+            for (int i = 0; i < permissions.length && i < grantResults.length; i++) {
+                if ("android.permission.RECORD_AUDIO".equals(permissions[i])
+                        && grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                    toast("Без микрофона голосовой ввод не работает, сэр");
+                }
+                if ("android.permission.POST_NOTIFICATIONS".equals(permissions[i])
+                        && grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                    toast("Без уведомлений напоминания не придут, сэр (Настройки → J.A.R.V.I.S.)");
+                }
+            }
         }
     }
 
@@ -1075,6 +1319,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (inst == this) inst = null;
         if (tts != null) {
             try { tts.stop(); tts.shutdown(); } catch (Exception ignored) { }
         }
