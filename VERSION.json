@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "repo": "AdrinaLiness/jarvis",
+  "updated": "2026-10-29",
+  "components": {
+    "launcher": "2.0",
+    "exe": "1.3",
+    "html": "1.3",
+    "go": "1.3",
+    "android": "1.3"
+  },
+  "notes_ru": "Лаунчер 2.0 — графический интерфейс; во все приложения добавлена проверка обновлений при каждом запуске.",
+  "download": "https://github.com/AdrinaLiness/jarvis/releases/latest",
+  "launcher_file": "JARVIS-Launcher.bat"
+}
