@@ -1626,7 +1626,7 @@ console.log('%c[JARVIS] Время генерации: '+Math.round(__t1-__t0)+'
     if (!target){ addLog('sys','❌ У «'+name+'» нет пути'); return; }
     try{
       if (window.Android){
-        var r = JSON.parse(Android.exec(JSON.stringify({cmd:'open_url', args:[String(target)]})));
+        var r = JSON.parse(Android.exec(JSON.stringify({cmd:'open_url', args:[String(target), String(name||'')]})));
         addLog('sys', (r && r.ok) ? ('✅ Запуск: ' + name + '\n    → ' + target) : ('❌ ' + ((r && r.error) || 'не удалось')));
       } else {
         var w = window.open(target, '_blank');
@@ -1732,20 +1732,25 @@ console.log('%c[JARVIS] Время генерации: '+Math.round(__t1-__t0)+'
       .catch(function(e){
         console.warn('[JARVIS LAUNCHER] shortcuts.json не загружен:', e);
         /* Fallback — встроенный список из твоего файла */
+        /* [JARVIS ANDROID] v1.4: fallback — только приложения телефона */
         SHORTCUTS = {
-          "discord": "steam://rungameid/1359653083732303872",
-          "spotify": "steam://rungameid/12186439978347134976",
-          "roblox": "steam://rungameid/11069516278275244032",
-          "euro_truck": "steam://rungameid/227300",
-          "telegram": "steam://rungameid/17847010478505590784",
-          "chrome": "steam://rungameid/13223750798820769792",
-          "yandex_music": "https://music.yandex.ru",
-          "youtube": "https://www.youtube.com",
-          "zona": "steam://rungameid/18333690144986497024",
-          "faceit_ac": "steam://rungameid/11940698790236782592",
-          "proxy": "steam://rungameid/12269805332217200640",
-          "VPN": "https://nerp.bot/cabinet",
-                "Code Studio": "steam://rungameid/779260"
+          "telegram": "pkg:org.telegram.messenger",
+          "whatsapp": "pkg:com.whatsapp",
+          "youtube": "pkg:com.google.android.youtube",
+          "chrome": "pkg:com.android.chrome",
+          "spotify": "pkg:com.spotify.music",
+          "discord": "pkg:com.discord",
+          "roblox": "pkg:com.roblox.client",
+          "tiktok": "pkg:com.zhiliaoapp.musically",
+          "instagram": "pkg:com.instagram.android",
+          "vk": "pkg:com.vkontakte.android",
+          "yandex_music": "pkg:ru.yandex.music",
+          "карты": "pkg:com.google.android.apps.maps",
+          "gmail": "pkg:com.google.android.gm",
+          "камера": "pkg:com.android.camera2",
+          "галерея": "pkg:com.google.android.apps.photos",
+          "ютуб": "pkg:com.google.android.youtube",
+          "почта": "pkg:com.google.android.gm"
         };
         buildCommands(Object.keys(SHORTCUTS));
       });
@@ -2223,6 +2228,37 @@ function settingsImport(file){
   </div>
 </div>
 <div class="settings-toast" id="settingsToast"></div>
+<!-- ============ ПРОВЕРКА ОБНОВЛЕНИЙ (JARVIS v1.3) ============ -->
+<div id="jarvisUpdBanner" style="display:none;position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:999999;max-width:min(780px,92vw);background:linear-gradient(135deg,#0d2a33,#0b1121);border:1px solid #22d3ee;border-radius:14px;box-shadow:0 10px 40px rgba(34,211,238,.35);padding:12px 16px;color:#e8f6fd;font:13px/1.5 system-ui,'Segoe UI',sans-serif;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="font-size:20px;">⬆️</div>
+    <div style="flex:1;">
+      <div style="font-weight:700;color:#67e8f9;margin-bottom:2px;">Доступна новая версия JARVIS</div>
+      <div id="jarvisUpdText" style="color:#b9d4e2;"></div>
+    </div>
+    <button id="jarvisUpdOpen" style="cursor:pointer;border:none;border-radius:9px;background:linear-gradient(135deg,#22d3ee,#0891b2);color:#04212b;font-weight:700;padding:9px 16px;">Открыть страницу загрузки</button>
+    <button id="jarvisUpdClose" style="cursor:pointer;border:1px solid #234;border-radius:9px;background:#0b1628;color:#9fb6c8;padding:9px 12px;">✕</button>
+  </div>
+</div>
+<script>
+(function(){
+  setTimeout(function(){
+    try{
+      fetch('/api/version',{cache:'no-store'}).then(function(r){return r.json()}).then(function(v){
+        if(!v||!v.update_available)return;
+        var b=document.getElementById('jarvisUpdBanner');if(!b)return;
+        document.getElementById('jarvisUpdText').textContent='У тебя v'+v.current+' — свежая v'+v.latest+'. Обновление: запусти JARVIS-Launcher.bat заново — он скачает новую версию за пару кликов.';
+        b.style.display='block';
+        document.getElementById('jarvisUpdOpen').onclick=function(){window.open(v.download||'https://github.com/AdrinaLiness/jarvis/releases/latest','_blank')};
+        document.getElementById('jarvisUpdClose').onclick=function(){b.style.display='none'};
+        try{console.log('[JARVIS] Доступно обновление: v'+v.current+' → v'+v.latest)}catch(e){}
+      }).catch(function(){});
+    }catch(e){}
+  },1800);
+})();
+</script>
+<!-- ============ /ПРОВЕРКА ОБНОВЛЕНИЙ ============ -->
+
 <script>
 /* --- Привязка событий --- */
 (function(){
@@ -2632,6 +2668,76 @@ window.__jarvisAISync=aiChipSync; /* внешняя синхронизация �
 /* аудит-панель на телефоне обновляется из нативного журнала */
 try{ if(typeof refreshAudit==='function') refreshAudit(); }catch(e){}
 console.log('%c[JARVIS ANDROID] Layer 2: голос, мозг, команды телефона','color:#42ffb0;font-weight:bold');
+})();
+
+/* ==================== JARVIS ANDROID · v1.4: ТОЛЬКО ТЕЛЕФОН ====================
+   По просьбе владельца: приложение для телефона не должно содержать ничего
+   ПК-шного. Убираем из интерфейса и маршрутизатора всё, что относится к ПК:
+     1) ПК-шаблоны команд (выключение/перезагрузка/блокировка ПК, скриншот,
+        файлы/папки Windows, свернуть всё…) — голосом/чатом больше не уходят
+     2) ПК-пункт палитры «▶ Открыть файл по пути» (file:///)
+     3) ПК-вкладки настроек: «Папки», «EXE корни», «Опасные»
+     4) ПК-описания опасных команд                                        */
+(function(){
+'use strict';
+if(!window.Android) return;
+
+/* 1) Фильтр BACKEND_PATTERNS: ПК-команды не доходят до бриджа */
+var PC_CMDS = {
+  shutdown:1, restart:1, cancel_shutdown:1, sleep_pc:1, lock_pc:1,
+  screenshot:1, open_explorer:1, list_dir:1, create_folder:1,
+  delete_file:1, minimize_all:1, show_desktop:1
+};
+try{
+  if (window.BACKEND_PATTERNS){
+    var bp = [];
+    for (var i = 0; i < window.BACKEND_PATTERNS.length; i++){
+      if (!PC_CMDS[window.BACKEND_PATTERNS[i][1]]) bp.push(window.BACKEND_PATTERNS[i]);
+    }
+    window.BACKEND_PATTERNS = bp;
+  }
+}catch(e){}
+
+/* 2) ПК-пункт палитры команд */
+try{
+  if (window.CMDS){
+    for (var c = window.CMDS.length - 1; c >= 0; c--){
+      if (window.CMDS[c] && window.CMDS[c].name === '▶ Открыть файл по пути'){
+        window.CMDS.splice(c, 1);
+      }
+    }
+  }
+}catch(e){}
+
+/* 3) ПК-вкладки и панели в настройках */
+try{
+  var deadPanes = ['pane-folders', 'pane-exe', 'pane-commands'];
+  for (var p = 0; p < deadPanes.length; p++){
+    var el = document.getElementById(deadPanes[p]);
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+  var tabs = document.querySelectorAll('.settings-tab');
+  for (var t = tabs.length - 1; t >= 0; t--){
+    var dp = tabs[t].getAttribute('data-pane');
+    if (dp === 'folders' || dp === 'exe' || dp === 'commands'){
+      if (tabs[t].parentNode) tabs[t].parentNode.removeChild(tabs[t]);
+    }
+  }
+}catch(e){}
+
+/* 4) ПК-описания опасных команд больше не показываем */
+try{
+  if (window.DANGEROUS_DESC){
+    delete window.DANGEROUS_DESC.shutdown;
+    delete window.DANGEROUS_DESC.restart;
+    delete window.DANGEROUS_DESC.sleep_pc;
+    delete window.DANGEROUS_DESC.run_powershell;
+    delete window.DANGEROUS_DESC.edit_registry;
+    delete window.DANGEROUS_DESC.edit_file;
+  }
+}catch(e){}
+
+console.log('%c[JARVIS ANDROID] v1.4: ПК-команды удалены — работаем только с телефоном','color:#42ffb0;font-weight:bold');
 })();
 
 </script>
