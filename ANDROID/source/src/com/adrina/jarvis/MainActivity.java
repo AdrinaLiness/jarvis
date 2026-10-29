@@ -13,6 +13,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
+import android.database.Cursor;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.media.AudioDeviceInfo;
@@ -25,6 +26,7 @@ import android.os.Handler;
 import android.os.Vibrator;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
+import android.telephony.SmsManager;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
@@ -110,6 +112,15 @@ public class MainActivity extends Activity {
                         != PackageManager.PERMISSION_GRANTED) {
             need.add("android.permission.POST_NOTIFICATIONS");
         }
+        /* v1.5: SMS (чтение вслух в фоне + отправка) и контакты (имена вместо
+           номеров). Все — опасные, поэтому рантайм-запрос тем же диалогом. */
+        String[] smsNeed = {"android.permission.RECEIVE_SMS",
+                "android.permission.READ_SMS",
+                "android.permission.SEND_SMS",
+                "android.permission.READ_CONTACTS"};
+        for (String pr : smsNeed) {
+            if (checkSelfPermission(pr) != PackageManager.PERMISSION_GRANTED) need.add(pr);
+        }
         if (!need.isEmpty()) requestPermissions(need.toArray(new String[0]), REQ_PERMS);
 
         initTts();
@@ -138,7 +149,7 @@ public class MainActivity extends Activity {
 
     /* ==================== ПРОВЕРКА ОБНОВЛЕНИЙ (v1.3) ==================== */
 
-    private static final String APP_VERSION = "1.4";
+    private static final String APP_VERSION = "1.5";
     private static final String VERSION_URL =
             "https://raw.githubusercontent.com/AdrinaLiness/jarvis/main/VERSION.json";
     private boolean updateDialogShown = false;
@@ -844,6 +855,82 @@ public class MainActivity extends Activity {
                 pendingDangerToken = null;
                 return jsonOk("Отменено");
             }
+            /* ============ СМС, МЕССЕНДЖЕРЫ, ЗВОНКИ (v1.5) ============ */
+            case "send_sms": {
+                String text = str(args, 1);
+                if (a0.trim().isEmpty() || text.isEmpty()) {
+                    return jsonErr("Формат: отправь смс <номер или имя> <текст>, сэр");
+                }
+                return doSendSms(a0.trim(), text);
+            }
+            case "open_chat": {
+                String target = str(args, 1).trim();
+                String text = str(args, 2);
+                if (a0.trim().isEmpty() || target.isEmpty()) {
+                    return jsonErr("Формат: напиши в <ватсап|телеграм|вайбер|вк|смс> <кому> [текст], сэр");
+                }
+                return doOpenChat(normName(a0), target, text);
+            }
+            case "dial": {
+                if (a0.trim().isEmpty()) return jsonErr("Укажите номер или имя, сэр");
+                String[] r = resolvePhone(a0.trim());
+                if (r == null) {
+                    return jsonErr("Не нашёл «" + a0.trim() + "» ни в номерах, ни в контактах, сэр");
+                }
+                try {
+                    startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + r[1])));
+                    return jsonOk("Набираю " + r[1] + (r[0].isEmpty() ? "" : " (" + r[0] + ")")
+                            + " — нажмите вызов, сэр");
+                } catch (Exception e) {
+                    return jsonErr("Ошибка набора: " + e.getMessage());
+                }
+            }
+            case "call": {
+                if (a0.trim().isEmpty()) return jsonErr("Укажите номер или имя, сэр");
+                String[] r = resolvePhone(a0.trim());
+                if (r == null) {
+                    return jsonErr("Не нашёл «" + a0.trim() + "» ни в номерах, ни в контактах, сэр");
+                }
+                if (checkSelfPermission("android.permission.CALL_PHONE")
+                        != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{"android.permission.CALL_PHONE"}, REQ_PERMS);
+                    try {
+                        startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + r[1])));
+                    } catch (Exception ignored) { }
+                    return jsonOk("Разрешение на звонки запросил, сэр; пока открыл набор "
+                            + r[1] + " — нажмите вызов");
+                }
+                try {
+                    startActivity(new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + r[1])));
+                    return jsonOk("Звоню " + (r[0].isEmpty() ? r[1] : r[0] + " (" + r[1] + ")") + ", сэр");
+                } catch (Exception e) {
+                    return jsonErr("Ошибка звонка: " + e.getMessage());
+                }
+            }
+            case "sms_status": {
+                JSONObject o = smsStatusJson();
+                return jsonOk("Чтение СМС вслух: "
+                        + (o.optBoolean("speak", true) ? "ВКЛЮЧЕНО" : "выключено")
+                        + " · приём: " + (o.optBoolean("receive") ? "ок" : "нет разрешения")
+                        + " · отправка: " + (o.optBoolean("send") ? "ок" : "нет разрешения")
+                        + " · контакты: " + (o.optBoolean("contacts") ? "ок" : "нет разрешения"));
+            }
+            case "sms_toggle": {
+                boolean cur = prefs.getBoolean("sms_speak", true);
+                boolean nv;
+                if (a0.trim().isEmpty()) {
+                    nv = !cur;
+                } else {
+                    String s = a0.trim().toLowerCase(Locale.ROOT);
+                    nv = s.matches("вкл\\w*|on|true|1|да");
+                }
+                prefs.edit().putBoolean("sms_speak", nv).apply();
+                return jsonOk(nv ? "Чтение СМС вслух включено, сэр"
+                        : "Чтение СМС вслух выключено, сэр");
+            }
+            case "sms_list": {
+                return doSmsList();
+            }
             /* ПК-команды удалены (v1.4): в приложении для телефона
                осталось только то, что работает на самом телефоне */
             default:
@@ -874,6 +961,185 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             return jsonErr("ошибка фонарика");
         }
+    }
+
+    /* ============ СМС, МЕССЕНДЖЕРЫ, ЗВОНКИ (v1.5) ============ */
+
+    /** Номер по «кому»: телефон → нормализация; имя → контакт (READ_CONTACTS).
+     *  Возвращает {имя, номер} или null (не найдено / нет разрешения). */
+    private String[] resolvePhone(String who) {
+        if (PhoneTools.looksLikePhone(who)) {
+            return new String[]{"", PhoneTools.normalize(who)};
+        }
+        if (checkSelfPermission("android.permission.READ_CONTACTS")
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{"android.permission.READ_CONTACTS"}, REQ_PERMS);
+            return null;
+        }
+        String[] hit = PhoneTools.findByName(this, who);
+        return hit != null ? new String[]{hit[0], PhoneTools.normalize(hit[1])} : null;
+    }
+
+    private JSONObject doSendSms(String to, String text) {
+        if (checkSelfPermission("android.permission.SEND_SMS")
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{"android.permission.SEND_SMS"}, REQ_PERMS);
+            return jsonErr("Нет разрешения на отправку СМС — выдал запрос, разрешите и повторите, сэр");
+        }
+        String num;
+        String name = "";
+        if (PhoneTools.looksLikePhone(to)) {
+            num = PhoneTools.normalize(to);
+        } else {
+            String[] r = resolvePhone(to);
+            if (r == null) {
+                return jsonErr("В контактах нет «" + to + "» (или нет разрешения на контакты), сэр. Можно так: отправь смс на +7… текст");
+            }
+            name = r[0];
+            num = r[1];
+        }
+        try {
+            SmsManager sm = (Build.VERSION.SDK_INT >= 31)
+                    ? getSystemService(SmsManager.class)
+                    : SmsManager.getDefault();
+            Intent sent = new Intent(this, SmsSentReceiver.class);
+            sent.putExtra("to", num);
+            PendingIntent pi = PendingIntent.getBroadcast(this,
+                    ("sent" + num + System.currentTimeMillis()).hashCode(), sent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            ArrayList<String> parts = sm.divideMessage(text);
+            if (parts.size() <= 1) {
+                sm.sendTextMessage(num, null, text, pi, null);
+            } else {
+                ArrayList<PendingIntent> pis = new ArrayList<>();
+                for (int i = 0; i < parts.size(); i++) pis.add(pi);
+                sm.sendMultipartTextMessage(num, null, parts, pis, null);
+            }
+            if (name.isEmpty()) {
+                String cn = PhoneTools.contactName(this, num);
+                if (cn != null) name = cn;
+            }
+            return jsonOk("Отправляю SMS " + (name.isEmpty() ? "на " + num
+                    : "для " + name + " (" + num + ")") + ", сэр — доложу о доставке");
+        } catch (Exception e) {
+            return jsonErr("SMS не отправилось: " + e.getMessage());
+        }
+    }
+
+    /** Чат мессенджера: whatsapp/telegram/viber/vk/sms. Текст — предзаполняем
+     *  (автоотправка в мессенджерах сторонним приложениям недоступна). */
+    private JSONObject doOpenChat(String app, String target, String text) {
+        String num = null;
+        boolean phoneish = PhoneTools.looksLikePhone(target);
+        if (phoneish) {
+            num = PhoneTools.normalize(target);
+        } else if (!"telegram".equals(app)) {
+            String[] r = resolvePhone(target);
+            if (r == null) {
+                return jsonErr("В контактах нет «" + target + "» (или нет разрешения на контакты), сэр");
+            }
+            num = r[1];
+        }
+        try {
+            Intent i;
+            if ("whatsapp".equals(app)) {
+                if (num == null) return jsonErr("WhatsApp открывается по номеру телефона, сэр");
+                String u = "https://wa.me/" + num.replace("+", "");
+                if (!text.isEmpty()) u += "?text=" + Uri.encode(text);
+                i = new Intent(Intent.ACTION_VIEW, Uri.parse(u));
+            } else if ("telegram".equals(app)) {
+                String t = target.replaceFirst("^@", "").trim();
+                if (phoneish) {
+                    i = new Intent(Intent.ACTION_VIEW,
+                            Uri.parse("tg://resolve?phone=" + num.replace("+", "")));
+                } else {
+                    i = new Intent(Intent.ACTION_VIEW,
+                            Uri.parse("tg://resolve?domain=" + Uri.encode(t)));
+                }
+            } else if ("viber".equals(app)) {
+                if (num == null) return jsonErr("Viber открывается по номеру телефона, сэр");
+                i = new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("viber://chat?number=" + Uri.encode(num)));
+            } else if ("vk".equals(app)) {
+                if (!text.isEmpty()) {
+                    i = new Intent(Intent.ACTION_SEND);
+                    i.setType("text/plain");
+                    i.setPackage("com.vkontakte.android");
+                    i.putExtra(Intent.EXTRA_TEXT, text);
+                } else {
+                    i = getPackageManager().getLaunchIntentForPackage("com.vkontakte.android");
+                    if (i == null) return jsonErr("VK не установлен, сэр");
+                }
+            } else if ("sms".equals(app)) {
+                i = new Intent(Intent.ACTION_SENDTO,
+                        Uri.parse("smsto:" + (num != null ? num : target)));
+                if (!text.isEmpty()) i.putExtra("sms_body", text);
+            } else {
+                return jsonErr("Не знаю мессенджер «" + app + "», сэр. Доступны: ватсап, телеграм, вайбер, вк, смс");
+            }
+            startActivity(i);
+            String label = num != null ? num : target;
+            return jsonOk("Открываю чат " + label + (text.isEmpty()
+                    ? ", сэр" : " — текст вставлен, останется нажать «отправить», сэр"));
+        } catch (Exception e) {
+            return jsonErr("Не смог открыть мессенджер: " + e.getMessage()
+                    + " (проверьте, что приложение установлено)");
+        }
+    }
+
+    private JSONObject doSmsList() {
+        if (checkSelfPermission("android.permission.READ_SMS")
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{"android.permission.READ_SMS"}, REQ_PERMS);
+            return jsonErr("Нет разрешения на чтение СМС — выдал запрос, разрешите и повторите, сэр");
+        }
+        try {
+            Cursor c = getContentResolver().query(
+                    android.provider.Telephony.Sms.CONTENT_URI,
+                    new String[]{android.provider.Telephony.Sms.ADDRESS,
+                            android.provider.Telephony.Sms.BODY,
+                            android.provider.Telephony.Sms.DATE},
+                    null, null, android.provider.Telephony.Sms.DATE + " DESC");
+            StringBuilder sb = new StringBuilder("Последние сообщения, сэр:\n");
+            int n = 0;
+            if (c != null) {
+                while (c.moveToNext() && n < 5) {
+                    String addr = c.getString(0);
+                    String body = c.getString(1);
+                    long date = c.getLong(2);
+                    String who = PhoneTools.contactName(this, addr == null ? "" : addr);
+                    String when = new SimpleDateFormat("dd.MM HH:mm", Locale.US)
+                            .format(new Date(date));
+                    String clip = body == null ? "" : body.replace('\n', ' ');
+                    if (clip.length() > 60) clip = clip.substring(0, 60) + "…";
+                    sb.append(++n).append(". ").append(when).append(" — ")
+                      .append(who != null ? who : (addr == null ? "?" : addr))
+                      .append(": ").append(clip).append('\n');
+                }
+                c.close();
+            }
+            if (n == 0) return jsonOk("Входящих сообщений не нашёл, сэр");
+            return jsonOk(sb.toString().trim());
+        } catch (Exception e) {
+            return jsonErr("Не смог прочитать СМС: " + e.getMessage());
+        }
+    }
+
+    private JSONObject smsStatusJson() {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("ok", true);
+            o.put("speak", prefs.getBoolean("sms_speak", true));
+            o.put("receive", checkSelfPermission("android.permission.RECEIVE_SMS")
+                    == PackageManager.PERMISSION_GRANTED);
+            o.put("send", checkSelfPermission("android.permission.SEND_SMS")
+                    == PackageManager.PERMISSION_GRANTED);
+            o.put("read", checkSelfPermission("android.permission.READ_SMS")
+                    == PackageManager.PERMISSION_GRANTED);
+            o.put("contacts", checkSelfPermission("android.permission.READ_CONTACTS")
+                    == PackageManager.PERMISSION_GRANTED);
+        } catch (Exception ignored) { }
+        return o;
     }
 
     private String resolveShortcut(String name) {
@@ -1171,6 +1437,33 @@ public class MainActivity extends Activity {
         });
     }
 
+    /** SmsReceiver → WebView: пришло SMS (лог в интерфейсе), если приложение живо. */
+    static void pushSms(final String from, final String body) {
+        final MainActivity m = inst;
+        if (m == null || m.web == null) return;
+        m.runOnUiThread(() -> {
+            try {
+                m.web.evaluateJavascript(
+                        "window.__jarvisSms && __jarvisSms("
+                                + quoteJs(from == null ? "" : from) + ","
+                                + quoteJs(body == null ? "" : body) + ");", null);
+            } catch (Exception ignored) { }
+        });
+    }
+
+    /** SmsSentReceiver → WebView: статус отправки/чтения СМС. */
+    static void pushSmsLog(final String text) {
+        final MainActivity m = inst;
+        if (m == null || m.web == null) return;
+        m.runOnUiThread(() -> {
+            try {
+                m.web.evaluateJavascript(
+                        "window.__jarvisSmsLog && __jarvisSmsLog("
+                                + quoteJs(text == null ? "" : text) + ");", null);
+            } catch (Exception ignored) { }
+        });
+    }
+
     private JSONObject batteryJson() {
         Intent i = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         JSONObject o = new JSONObject();
@@ -1256,6 +1549,8 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         if (requestCode == REQ_PERMS || requestCode == REQ_MIC) {
+            boolean smsDenied = false;
+            boolean contactsDenied = false;
             for (int i = 0; i < permissions.length && i < grantResults.length; i++) {
                 if ("android.permission.RECORD_AUDIO".equals(permissions[i])
                         && grantResults[i] != PackageManager.PERMISSION_GRANTED) {
@@ -1265,6 +1560,22 @@ public class MainActivity extends Activity {
                         && grantResults[i] != PackageManager.PERMISSION_GRANTED) {
                     toast("Без уведомлений напоминания не придут, сэр (Настройки → J.A.R.V.I.S.)");
                 }
+                if (("android.permission.RECEIVE_SMS".equals(permissions[i])
+                        || "android.permission.READ_SMS".equals(permissions[i])
+                        || "android.permission.SEND_SMS".equals(permissions[i]))
+                        && grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                    smsDenied = true;
+                }
+                if ("android.permission.READ_CONTACTS".equals(permissions[i])
+                        && grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                    contactsDenied = true;
+                }
+            }
+            if (smsDenied) {
+                toast("Без SMS-разрешений чтение и отправка СМС не работают, сэр");
+            }
+            if (contactsDenied) {
+                toast("Без контактов пишем и звоним только по номерам, сэр");
             }
         }
     }
