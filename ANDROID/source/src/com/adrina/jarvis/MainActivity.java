@@ -27,6 +27,7 @@ import android.os.Vibrator;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
 import android.telephony.SmsManager;
+import android.view.Display;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
@@ -140,6 +141,7 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new Bridge(), "Android");
         setContentView(web);
         hideSystemUi();
+        applyMaxRefreshRate(); /* v1.6: герцовка до 120 Гц — реактор без лагов */
         web.loadUrl(START_URL);
 
         // Проверка обновлений — при каждом запуске приложения (в фоне,
@@ -147,9 +149,49 @@ public class MainActivity extends Activity {
         checkForAppUpdate();
     }
 
+    /* ==================== ГЕРЦОВКА ДО 120 Гц (v1.6) ==================== */
+
+    /**
+     * v1.6: просим у экрана максимальную частоту обновления (до 120 Гц),
+     * чтобы реактор и все анимации UI шли плавно, без лагов.
+     * Выбираем режим с тем же разрешением, что и текущий (чтобы не
+     * просадить картинку с QHD до FHD на части моделей) и самым высоким
+     * refresh rate. Повторяем в onResume: часть прошивок сбрасывает режим
+     * после сворачивания приложения. Display.Mode доступен с API 23,
+     * у нас minSdk 24 — проверка версии не нужна.
+     */
+    private void applyMaxRefreshRate() {
+        try {
+            Display display = getWindowManager().getDefaultDisplay();
+            Display.Mode cur = display.getMode();
+            Display.Mode best = cur;
+            for (Display.Mode m : display.getSupportedModes()) {
+                if (m.getPhysicalWidth() == cur.getPhysicalWidth()
+                        && m.getPhysicalHeight() == cur.getPhysicalHeight()
+                        && m.getRefreshRate() > best.getRefreshRate()) {
+                    best = m;
+                }
+            }
+            if (best.getModeId() != cur.getModeId()) {
+                WindowManager.LayoutParams lp = getWindow().getAttributes();
+                lp.preferredDisplayModeId = best.getModeId();
+                lp.preferredRefreshRate = best.getRefreshRate();
+                getWindow().setAttributes(lp);
+            }
+        } catch (Throwable t) {
+            /* прошивка не даёт выбирать режим — не критично, работаем как раньше */
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        applyMaxRefreshRate(); /* после сворачивания режим могли сбросить */
+    }
+
     /* ==================== ПРОВЕРКА ОБНОВЛЕНИЙ (v1.3) ==================== */
 
-    private static final String APP_VERSION = "1.5";
+    private static final String APP_VERSION = "1.6";
     private static final String VERSION_URL =
             "https://raw.githubusercontent.com/AdrinaLiness/jarvis/main/VERSION.json";
     private boolean updateDialogShown = false;
