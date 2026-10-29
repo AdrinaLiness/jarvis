@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.adrina.jarvis"
-    android:versionCode="3"
-    android:versionName="1.2">
+    android:versionCode="6"
+    android:versionName="1.5">
 
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
@@ -15,6 +15,16 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <uses-permission android:name="android.permission.FLASHLIGHT"/>
+    <!-- v1.5: телефон под командой. SMS: чтение входящих вслух (фон) +
+         отправка. Контакты — имена вместо номеров. CALL_PHONE — прямой
+         звонок по команде «позвони» (запрос в рантайме при первом звонке).
+         FOREGROUND_SERVICE — тихий сервис озвучки СМС (Android 8+). -->
+    <uses-permission android:name="android.permission.SEND_SMS"/>
+    <uses-permission android:name="android.permission.RECEIVE_SMS"/>
+    <uses-permission android:name="android.permission.READ_SMS"/>
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
+    <uses-permission android:name="android.permission.CALL_PHONE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <!-- Android 11+ (API 30): без этого блок видимость приложений —
          getLaunchIntentForPackage() возвращает null и запуск не работает.
@@ -54,6 +64,25 @@
         <!-- Будильники напоминаний: срабатывают даже если приложение выгружено -->
         <receiver
             android:name=".NotifReceiver"
+            android:exported="false"/>
+        <!-- v1.5: входящие SMS в фоне. BROADCAST_SMS — только система может
+             доставить в этот приёмник (защита от подделки другими приложениями). -->
+        <receiver
+            android:name=".SmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter android:priority="999">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
+            </intent-filter>
+        </receiver>
+        <!-- v1.5: озвучка СМС (TTS); на Android 14+ — тип shortService -->
+        <service
+            android:name=".SmsSpeakerService"
+            android:exported="false"
+            android:foregroundServiceType="shortService"/>
+        <!-- v1.5: отчёт о статусе отправки SMS -->
+        <receiver
+            android:name=".SmsSentReceiver"
             android:exported="false"/>
     </application>
 </manifest>
