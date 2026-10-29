@@ -3,6 +3,7 @@ package com.adrina.jarvis;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlarmManager;
+import android.app.AlertDialog;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
@@ -129,6 +130,112 @@ public class MainActivity extends Activity {
         setContentView(web);
         hideSystemUi();
         web.loadUrl(START_URL);
+
+        // Проверка обновлений — при каждом запуске приложения (в фоне,
+        // не тормозит старт; если вышла новая версия — предложим скачать)
+        checkForAppUpdate();
+    }
+
+    /* ==================== ПРОВЕРКА ОБНОВЛЕНИЙ (v1.3) ==================== */
+
+    private static final String APP_VERSION = "1.3";
+    private static final String VERSION_URL =
+            "https://raw.githubusercontent.com/AdrinaLiness/jarvis/main/VERSION.json";
+    private boolean updateDialogShown = false;
+
+    /** "1.10" -> [1, 10] — сравнение версий по-числовому, а не по-строчному. */
+    private static int[] verTuple(String v) {
+        int[] res = new int[4];
+        int n = 0, cur = 0;
+        boolean has = false;
+        for (int i = 0; i <= v.length() && n < 4; i++) {
+            if (i == v.length() || v.charAt(i) == '.') {
+                res[n++] = has ? cur : 0;
+                cur = 0;
+                has = false;
+            } else {
+                char c = v.charAt(i);
+                if (c >= '0' && c <= '9') {
+                    cur = cur * 10 + (c - '0');
+                    has = true;
+                }
+            }
+        }
+        return res;
+    }
+
+    private static boolean verOlder(String a, String b) {
+        int[] x = verTuple(a), y = verTuple(b);
+        for (int i = 0; i < 4; i++) {
+            if (x[i] < y[i]) return true;
+            if (x[i] > y[i]) return false;
+        }
+        return false;
+    }
+
+    /**
+     * Фоново сверяет APP_VERSION с VERSION.json в репозитории.
+     * Любая ошибка (нет сети, таймаут) — молча пропускаем: это норма,
+     * проверка повторится при следующем запуске приложения.
+     */
+    private void checkForAppUpdate() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String latest = "";
+                String download = "https://github.com/AdrinaLiness/jarvis/releases/latest";
+                try {
+                    java.net.HttpURLConnection conn =
+                            (java.net.HttpURLConnection) new java.net.URL(VERSION_URL).openConnection();
+                    conn.setConnectTimeout(6000);
+                    conn.setReadTimeout(6000);
+                    conn.setRequestProperty("User-Agent", "JARVIS-android");
+                    int code = conn.getResponseCode();
+                    if (code != 200) throw new Exception("HTTP " + code);
+                    java.io.BufferedReader br = new java.io.BufferedReader(
+                            new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = br.readLine()) != null) sb.append(line);
+                    br.close();
+                    JSONObject data = new JSONObject(sb.toString());
+                    latest = data.getJSONObject("components").optString("android", "");
+                    String dl = data.optString("download", "");
+                    if (!dl.isEmpty()) download = dl;
+                } catch (Exception e) {
+                    return; /* офлайн — не страшно */
+                }
+                if (latest.isEmpty() || !verOlder(APP_VERSION, latest)) return;
+                final String fLatest = latest;
+                final String fDownload = download;
+                ui.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (updateDialogShown || isFinishing()) return;
+                        updateDialogShown = true;
+                        try {
+                            new AlertDialog.Builder(MainActivity.this)
+                                    .setTitle("Доступно обновление JARVIS")
+                                    .setMessage("У тебя v" + APP_VERSION
+                                            + ", свежая версия — v" + fLatest
+                                            + ".\n\nСкачать новый APK со страницы релизов?"
+                                            + "\n\n(Если телефон не захочет ставить поверх старой версии — удали JARVIS и установи заново.)")
+                                    .setPositiveButton("Скачать", new android.content.DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(android.content.DialogInterface d, int w) {
+                                            try {
+                                                startActivity(new Intent(Intent.ACTION_VIEW,
+                                                        Uri.parse(fDownload)));
+                                            } catch (Exception ignored) { }
+                                        }
+                                    })
+                                    .setNegativeButton("Позже", null)
+                                    .show();
+                        } catch (Exception ignored) { }
+                    }
+                });
+            }
+        }, "jarvis-update-check").start();
     }
 
     private void hideSystemUi() {
