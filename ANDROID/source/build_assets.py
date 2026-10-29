@@ -5,6 +5,7 @@
 + Layer2 (голос/ИИ/телефон) перед </body>
 + Layer3 (ориентации) перед </body>
 + Layer4 (уведомления/напоминания) перед </body>
++ Layer5 (смс/мессенджеры/звонки, v1.5) перед </body>
 + патч openTarget → нативный мост (pkg:/http запуски через Java,
   вместе с именем ярлыка — для умного поиска на телефоне)
 + патч launchByName → fallback на умный поиск приложений в Java
@@ -20,6 +21,7 @@ l1 = io.open(f"{BASE}/patch/layer1.js", encoding="utf-8").read()
 l2 = io.open(f"{BASE}/patch/layer2.js", encoding="utf-8").read()
 l3 = io.open(f"{BASE}/patch/layer3.js", encoding="utf-8").read()
 l4 = io.open(f"{BASE}/patch/layer4.js", encoding="utf-8").read()
+l5 = io.open(f"{BASE}/patch/layer5.js", encoding="utf-8").read()
 
 # --- Патч 1: openTarget → нативный мост (надёжный запуск pkg:/https,
 #     минуя window.open, который в WebView ненадёжен для кастомных схем) ---
@@ -113,7 +115,7 @@ html = html[:idx_start] + "/* [JARVIS ANDROID] привязка событий �
 l2 = bind_block + "\n\n" + l2
 
 # защита от преждевременного закрытия script
-for name, js in (("layer1", l1), ("layer2", l2), ("layer3", l3), ("layer4", l4)):
+for name, js in (("layer1", l1), ("layer2", l2), ("layer3", l3), ("layer4", l4), ("layer5", l5)):
     if "</script" in js.lower():
         sys.exit(f"FATAL: {name} содержит </script>")
 
@@ -122,7 +124,7 @@ idx = html.index(marker_body) + len(marker_body)
 html = html[:idx] + "\n<script>\n" + l1 + "\n</script>\n" + html[idx:]
 
 close = html.rindex("</body>")
-html = html[:close] + "<script>\n" + l2 + "\n</script>\n<script>\n" + l3 + "\n</script>\n<script>\n" + l4 + "\n</script>\n" + html[close:]
+html = html[:close] + "<script>\n" + l2 + "\n</script>\n<script>\n" + l3 + "\n</script>\n<script>\n" + l4 + "\n</script>\n<script>\n" + l5 + "\n</script>\n" + html[close:]
 
 out = f"{BASE}/assets/jarvis.html"
 io.open(out, "w", encoding="utf-8").write(html)
@@ -140,4 +142,8 @@ assert "__jarvisNotifFired" in html, "нет слоя 4 (уведомления)
 assert "remind_in" in html, "нет голосовых команд напоминаний"
 assert "steam://rungameid" not in html, "остались ПК steam-ярлыки!"
 assert "String(name||'')" in html, "openTarget не передаёт имя"
-print("checks passed: shims + v1.1 + v1.2 + v1.4 (только телефон) present")
+assert "'send_sms'" in html and "'sms_toggle'" in html, "нет слоя 5 (смс/мессенджеры/звонки)"
+assert "__jarvisSms" in html, "нет хука входящих СМС"
+assert "smsChip" in html, "нет чипа чтения СМС"
+assert "'open_chat'" in html and "appFrom" in html, "нет маршрутизации мессенджеров"
+print("checks passed: shims + v1.1 + v1.2 + v1.4 + v1.5 (смс/звонки) present")
