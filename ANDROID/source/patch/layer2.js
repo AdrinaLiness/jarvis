@@ -248,3 +248,73 @@ window.__jarvisAISync=aiChipSync; /* внешняя синхронизация �
 try{ if(typeof refreshAudit==='function') refreshAudit(); }catch(e){}
 console.log('%c[JARVIS ANDROID] Layer 2: голос, мозг, команды телефона','color:#42ffb0;font-weight:bold');
 })();
+
+/* ==================== JARVIS ANDROID · v1.4: ТОЛЬКО ТЕЛЕФОН ====================
+   По просьбе владельца: приложение для телефона не должно содержать ничего
+   ПК-шного. Убираем из интерфейса и маршрутизатора всё, что относится к ПК:
+     1) ПК-шаблоны команд (выключение/перезагрузка/блокировка ПК, скриншот,
+        файлы/папки Windows, свернуть всё…) — голосом/чатом больше не уходят
+     2) ПК-пункт палитры «▶ Открыть файл по пути» (file:///)
+     3) ПК-вкладки настроек: «Папки», «EXE корни», «Опасные»
+     4) ПК-описания опасных команд                                        */
+(function(){
+'use strict';
+if(!window.Android) return;
+
+/* 1) Фильтр BACKEND_PATTERNS: ПК-команды не доходят до бриджа */
+var PC_CMDS = {
+  shutdown:1, restart:1, cancel_shutdown:1, sleep_pc:1, lock_pc:1,
+  screenshot:1, open_explorer:1, list_dir:1, create_folder:1,
+  delete_file:1, minimize_all:1, show_desktop:1
+};
+try{
+  if (window.BACKEND_PATTERNS){
+    var bp = [];
+    for (var i = 0; i < window.BACKEND_PATTERNS.length; i++){
+      if (!PC_CMDS[window.BACKEND_PATTERNS[i][1]]) bp.push(window.BACKEND_PATTERNS[i]);
+    }
+    window.BACKEND_PATTERNS = bp;
+  }
+}catch(e){}
+
+/* 2) ПК-пункт палитры команд */
+try{
+  if (window.CMDS){
+    for (var c = window.CMDS.length - 1; c >= 0; c--){
+      if (window.CMDS[c] && window.CMDS[c].name === '▶ Открыть файл по пути'){
+        window.CMDS.splice(c, 1);
+      }
+    }
+  }
+}catch(e){}
+
+/* 3) ПК-вкладки и панели в настройках */
+try{
+  var deadPanes = ['pane-folders', 'pane-exe', 'pane-commands'];
+  for (var p = 0; p < deadPanes.length; p++){
+    var el = document.getElementById(deadPanes[p]);
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+  var tabs = document.querySelectorAll('.settings-tab');
+  for (var t = tabs.length - 1; t >= 0; t--){
+    var dp = tabs[t].getAttribute('data-pane');
+    if (dp === 'folders' || dp === 'exe' || dp === 'commands'){
+      if (tabs[t].parentNode) tabs[t].parentNode.removeChild(tabs[t]);
+    }
+  }
+}catch(e){}
+
+/* 4) ПК-описания опасных команд больше не показываем */
+try{
+  if (window.DANGEROUS_DESC){
+    delete window.DANGEROUS_DESC.shutdown;
+    delete window.DANGEROUS_DESC.restart;
+    delete window.DANGEROUS_DESC.sleep_pc;
+    delete window.DANGEROUS_DESC.run_powershell;
+    delete window.DANGEROUS_DESC.edit_registry;
+    delete window.DANGEROUS_DESC.edit_file;
+  }
+}catch(e){}
+
+console.log('%c[JARVIS ANDROID] v1.4: ПК-команды удалены — работаем только с телефоном','color:#42ffb0;font-weight:bold');
+})();
