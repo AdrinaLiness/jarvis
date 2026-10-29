@@ -8,7 +8,7 @@
 
 ![architecture](https://img.shields.io/badge/versions-4-blue) ![html](https://img.shields.io/badge/python-3.10%2B-blue) ![go](https://img.shields.io/badge/go-1.21%2B-00ADD8) ![exe](https://img.shields.io/badge/WebView2-Win10%2F11-success) ![android](https://img.shields.io/badge/android-8.0%2B-3DDC84) ![license](https://img.shields.io/badge/license-MIT-green)
 
-## 🚦 Четыре версии — какую выбрать?
+## Четыре версии — какую выбрать?
 
 | | 🌐 HTML | 🟢 GO | 📦 EXE | 📱 ANDROID |
 |---|---|---|---|---|
