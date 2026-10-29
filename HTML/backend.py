@@ -34,6 +34,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.request
 import uuid
 import webbrowser
 from collections import defaultdict, deque
@@ -64,6 +65,23 @@ RATE_LIMIT = 10           # команд в секунду с одного IP
 CONFIRM_TTL_SEC = 60      # время жизни токена подтверждения
 AUDIT_TAIL = 20           # сколько последних записей отдаёт /audit
 SHUTDOWN_DELAY_MAX = 3600 # максимум секунд до shutdown/restart
+
+# ---------------------------------------------------------------------------
+# Версия и проверка обновлений.
+# При каждом запуске сервер в фоне сверяет свою версию с VERSION.json из
+# репозитория; результат отдаётся в веб-интерфейс через GET /api/version
+# (jarvis.html показывает баннер «Доступна новая версия»).
+# ---------------------------------------------------------------------------
+JARVIS_VERSION = "1.3"
+VERSION_URL = ("https://raw.githubusercontent.com/"
+               "AdrinaLiness/jarvis/main/VERSION.json")
+UPDATE_INFO: dict[str, Any] = {
+    "current": JARVIS_VERSION,
+    "latest": JARVIS_VERSION,
+    "update_available": False,
+    "checked": False,
+    "download": "https://github.com/AdrinaLiness/jarvis/releases/latest",
+}
 
 ROOT = Path(__file__).parent.resolve()
 AUDIT_LOG = ROOT / "jarvis_audit.log"
@@ -1291,6 +1309,64 @@ async def _ws_handler(request: web.Request) -> web.StreamResponse:
 
 
 # ============================================================================
+# Проверка обновлений (при каждом запуске сервера)
+# ============================================================================
+
+def _ver_tuple(v: str) -> tuple[int, ...]:
+    """'1.10' -> (1, 10): сравнение версий по-числовому, а не по-строчному."""
+    nums = re.findall(r"\d+", str(v or ""))
+    return tuple(int(x) for x in nums[:4]) if nums else (0,)
+
+
+def check_for_updates(timeout: float = 5.0) -> dict[str, Any]:
+    """Сверяет свою версию с VERSION.json в репозитории.
+
+    Никогда не бросает исключений и не тормозит запуск: при любой ошибке
+    (нет интернета, таймаут, кривой JSON) сервер просто работает дальше.
+    """
+    UPDATE_INFO["checked"] = True
+    try:
+        req = urllib.request.Request(
+            VERSION_URL, headers={"User-Agent": "JARVIS-backend"}
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        latest = str((data.get("components") or {}).get("html") or "")
+        if latest and _ver_tuple(latest) > _ver_tuple(JARVIS_VERSION):
+            UPDATE_INFO["latest"] = latest
+            UPDATE_INFO["update_available"] = True
+            UPDATE_INFO["notes"] = str(data.get("notes_ru", ""))
+            UPDATE_INFO["download"] = str(
+                data.get("download") or "https://github.com/AdrinaLiness/jarvis/releases/latest"
+            )
+            log.warning(
+                "Доступна новая версия JARVIS: %s (у тебя %s). "
+                "Обновление: запусти JARVIS-Launcher.bat заново — он скачает свежую версию.",
+                latest, JARVIS_VERSION,
+            )
+        else:
+            UPDATE_INFO["latest"] = latest or JARVIS_VERSION
+            UPDATE_INFO["update_available"] = False
+            if latest:
+                log.info("Версия JARVIS актуальна: %s", JARVIS_VERSION)
+    except Exception as e:  # noqa: BLE001 - офлайн/лимиты это норма, не ошибка
+        UPDATE_INFO["update_available"] = False
+        log.info("Проверка обновлений пропущена (%s)", e.__class__.__name__)
+    return UPDATE_INFO
+
+
+def _updates_thread() -> None:
+    # небольшая задержка: пусть сначала поднимется сам сервер
+    time.sleep(1.5)
+    check_for_updates()
+
+
+async def _api_version(_request: web.Request) -> web.Response:
+    """GET /api/version — текущая/свежая версия + флаг обновления."""
+    return web.json_response(UPDATE_INFO)
+
+
+# ============================================================================
 # Точка входа
 # ============================================================================
 
@@ -1343,9 +1419,14 @@ def main(argv: list[str] | None = None) -> int:
     app.router.add_get("/api/settings", _settings_get)
     app.router.add_post("/api/settings", _settings_post)
     app.router.add_post("/api/settings/reset", _settings_reset)
+    app.router.add_get("/api/version", _api_version)
     app.router.add_get("/{name}", _static_file)
 
     log.info("J.A.R.V.I.S. backend на http://%s:%s (WS: /ws)", HOST, args.port)
+
+    # Проверка обновлений в фоне — при каждом запуске (не блокирует сервер)
+    threading.Thread(target=_updates_thread, name="jarvis-update-check", daemon=True).start()
+
     try:
         web.run_app(app, host=HOST, port=args.port, print=None, access_log=None)
     except OSError as e:
