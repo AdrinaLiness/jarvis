@@ -1,7 +1,7 @@
 {
   "telegram": "pkg:org.telegram.messenger",
   "whatsapp": "pkg:com.whatsapp",
-  "youtube": "https://www.youtube.com",
+  "youtube": "pkg:com.google.android.youtube",
   "chrome": "pkg:com.android.chrome",
   "spotify": "pkg:com.spotify.music",
   "discord": "pkg:com.discord",
