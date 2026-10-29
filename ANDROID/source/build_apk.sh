@@ -1,5 +1,6 @@
 #!/bin/bash
 # Сборка J.A.R.V.I.S. Android APK (без Gradle — aapt2 + d8 + apksigner)
+# v1.5: смс/мессенджеры/звонки — SmsManager, deep links, контакты, TTS в фоне
 # v1.4: только телефон — запуск ВСЕХ приложений на телефоне, ПК-команды удалены
 # v1.3: проверка обновлений при каждом запуске (диалог «Доступно обновление»)
 # v1.2: уведомления/напоминания (NotifReceiver + R.drawable.notif_icon → нужен R.java)
@@ -8,7 +9,12 @@ SDK=/home/z/my-project/android-sdk
 PROJ=/home/z/my-project/jarvis_android
 BT=$SDK/android-14
 PLAT=$SDK/android-34/android.jar
-JAVA=$SDK/jdk-17.0.21+9/bin
+# JDK: предпочитаем pinned 17, иначе системный javac/java
+if [ -x "$SDK/jdk-17.0.21+9/bin/javac" ]; then
+  JAVA=$SDK/jdk-17.0.21+9/bin
+else
+  JAVA="$(dirname "$(command -v javac)")"
+fi
 OUT=$PROJ/out
 export PATH="$JAVA:$PATH"
 
@@ -24,7 +30,7 @@ echo "[1/6] aapt2 compile + link (+ R.java)..."
   -A "$PROJ/assets" \
   --java "$OUT/gen" \
   --min-sdk-version 24 --target-sdk-version 34 \
-  --version-code 5 --version-name 1.4 --replace-version \
+  --version-code 6 --version-name 1.5 --replace-version \
   --auto-add-overlay \
   "$OUT/res.zip"
 ls "$OUT/gen/com/adrina/jarvis/" 2>/dev/null
@@ -55,8 +61,8 @@ if [ ! -f "$KS" ]; then
     -dname "CN=JARVIS, OU=AdrinaLiness, O=AdrinaLiness, C=RU" >/dev/null 2>&1
 fi
 "$BT/apksigner" sign --ks "$KS" --ks-pass pass:jarvis2026 \
-  --out "$PROJ/JARVIS-v1.4.apk" "$OUT/jarvis-aligned.apk"
-"$BT/apksigner" verify "$PROJ/JARVIS-v1.4.apk" && echo "APK OK"
+  --out "$PROJ/JARVIS-v1.5.apk" "$OUT/jarvis-aligned.apk"
+"$BT/apksigner" verify "$PROJ/JARVIS-v1.5.apk" && echo "APK OK"
 
-ls -la "$PROJ/JARVIS-v1.4.apk"
-"$BT/aapt2" dump badging "$PROJ/JARVIS-v1.4.apk" | head -8
+ls -la "$PROJ/JARVIS-v1.5.apk"
+"$BT/aapt2" dump badging "$PROJ/JARVIS-v1.5.apk" | head -8
