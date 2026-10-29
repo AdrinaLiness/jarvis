@@ -138,7 +138,7 @@ public class MainActivity extends Activity {
 
     /* ==================== ПРОВЕРКА ОБНОВЛЕНИЙ (v1.3) ==================== */
 
-    private static final String APP_VERSION = "1.3";
+    private static final String APP_VERSION = "1.4";
     private static final String VERSION_URL =
             "https://raw.githubusercontent.com/AdrinaLiness/jarvis/main/VERSION.json";
     private boolean updateDialogShown = false;
@@ -321,13 +321,15 @@ public class MainActivity extends Activity {
             Uri u = req.getUrl();
             String url = u.toString();
             if ("file".equals(u.getScheme())) return false; // свой интерфейс — внутри
-            handleExternalTarget(url);
+            handleExternalTarget(url, null);
             return true;
         }
     }
 
-    /** Запуск внешних целей: pkg: имя пакета, http(s) — браузер, steam:// — только ПК. */
-    private void handleExternalTarget(String target) {
+    /** Запуск внешних целей НА ТЕЛЕФОНЕ: pkg: пакет, http(s) — браузер,
+     *  всё остальное (в т.ч. ПК-схемы вроде steam://) — умный поиск
+     *  приложения по имени среди установленных на телефоне. */
+    private void handleExternalTarget(String target, String name) {
         try {
             if (target == null || target.isEmpty()) return;
             if (target.startsWith("pkg:")) {
@@ -347,21 +349,31 @@ public class MainActivity extends Activity {
                 }
                 return;
             }
-            if (target.startsWith("steam://")) {
-                toast("steam:// работает только на ПК, сэр");
-                return;
-            }
             if (target.startsWith("http://") || target.startsWith("https://")) {
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(target)));
                 return;
             }
-            // что-то другое — пробуем как пакет, потом как URL
+            /* Не телефонная схема (steam:// и пр.) — ищем приложение на телефоне */
+            String probe = (name != null && !name.isEmpty())
+                    ? name : target.replaceFirst("^[a-zA-Z][a-zA-Z0-9+.-]*://", "");
+            String[] app = resolveInstalledApp(probe);
+            if (app != null) {
+                Intent li = getPackageManager().getLaunchIntentForPackage(app[0]);
+                if (li != null) {
+                    startActivity(li);
+                    return;
+                }
+            }
+            /* Последний шанс — трактуем цель как имя пакета */
             Intent i = getPackageManager().getLaunchIntentForPackage(target);
-            if (i != null) startActivity(i);
-            else startActivity(new Intent(Intent.ACTION_VIEW,
-                    Uri.parse("https://www.google.com/search?q=" + Uri.encode(target))));
+            if (i != null) {
+                startActivity(i);
+            } else {
+                toast("«" + probe + "» не найдено на телефоне, сэр");
+            }
         } catch (ActivityNotFoundException anf) {
-            toast("Приложение не найдено: " + target);
+            toast("Приложение не найдено: "
+                    + (name != null && !name.isEmpty() ? name : target));
         } catch (Exception e) {
             toast("Ошибка запуска: " + e.getMessage());
         }
@@ -677,7 +689,7 @@ public class MainActivity extends Activity {
             case "media_prev": return mediaKey(88);   // KEYCODE_MEDIA_PREVIOUS
             case "open_url": {
                 try {
-                    handleExternalTarget(a0);
+                    handleExternalTarget(a0, str(args, 1));
                     return jsonOk("Открыто");
                 } catch (Exception e) {
                     return jsonErr(String.valueOf(e.getMessage()));
@@ -687,7 +699,7 @@ public class MainActivity extends Activity {
                 /* 1) Ярлыки пользователя и встроенные */
                 String target = resolveShortcut(a0);
                 if (target != null) {
-                    handleExternalTarget(target);
+                    handleExternalTarget(target, a0);
                     return jsonOk("Запускаю " + a0);
                 }
                 /* 2) Умный поиск среди установленных приложений по названию */
@@ -832,20 +844,8 @@ public class MainActivity extends Activity {
                 pendingDangerToken = null;
                 return jsonOk("Отменено");
             }
-            /* ПК-команды: честно отвечаем, что это не для телефона */
-            case "shutdown":
-            case "restart":
-            case "sleep_pc":
-            case "lock_pc":
-            case "screenshot":
-            case "open_explorer":
-            case "list_dir":
-            case "create_folder":
-            case "delete_file":
-            case "minimize_all":
-            case "show_desktop":
-            case "cancel_shutdown":
-                return jsonErr("Эта команда — для ПК-версии JARVIS. На телефоне недоступна, сэр.");
+            /* ПК-команды удалены (v1.4): в приложении для телефона
+               осталось только то, что работает на самом телефоне */
             default:
                 return jsonErr("Неизвестная команда: " + cmd);
         }
