@@ -1,5 +1,6 @@
 #!/bin/bash
 # Сборка J.A.R.V.I.S. Android APK (без Gradle — aapt2 + d8 + apksigner)
+# v1.3: проверка обновлений при каждом запуске (диалог «Доступно обновление»)
 # v1.2: уведомления/напоминания (NotifReceiver + R.drawable.notif_icon → нужен R.java)
 set -e
 SDK=/home/z/my-project/android-sdk
@@ -22,7 +23,7 @@ echo "[1/6] aapt2 compile + link (+ R.java)..."
   -A "$PROJ/assets" \
   --java "$OUT/gen" \
   --min-sdk-version 24 --target-sdk-version 34 \
-  --version-code 3 --version-name 1.2 \
+  --version-code 4 --version-name 1.3 --replace-version \
   --auto-add-overlay \
   "$OUT/res.zip"
 ls "$OUT/gen/com/adrina/jarvis/" 2>/dev/null
@@ -53,8 +54,8 @@ if [ ! -f "$KS" ]; then
     -dname "CN=JARVIS, OU=AdrinaLiness, O=AdrinaLiness, C=RU" >/dev/null 2>&1
 fi
 "$BT/apksigner" sign --ks "$KS" --ks-pass pass:jarvis2026 \
-  --out "$PROJ/JARVIS-v1.2.apk" "$OUT/jarvis-aligned.apk"
-"$BT/apksigner" verify "$PROJ/JARVIS-v1.2.apk" && echo "APK OK"
+  --out "$PROJ/JARVIS-v1.3.apk" "$OUT/jarvis-aligned.apk"
+"$BT/apksigner" verify "$PROJ/JARVIS-v1.3.apk" && echo "APK OK"
 
-ls -la "$PROJ/JARVIS-v1.2.apk"
+ls -la "$PROJ/JARVIS-v1.3.apk"
 "$BT/aapt2" dump badging "$PROJ/JARVIS-v1.2.apk" | head -8
