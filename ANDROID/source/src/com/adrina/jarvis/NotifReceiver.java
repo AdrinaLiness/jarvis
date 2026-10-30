@@ -53,8 +53,21 @@ public class NotifReceiver extends BroadcastReceiver {
                     buildNotif(ctx, title, text, tapIntent(ctx)));
         } catch (Exception ignored) { }
 
-        /* 3. Если приложение живо — лог и озвучка в интерфейсе */
+        /* 3. Если приложение живо — лог в интерфейсе */
         MainActivity.pushNotifFired(id, title, text);
+
+        /* 4. v1.7: озвучка в фоне — работает, даже если приложение
+              свёрнуто или убито (раньше фразу говорил только WebView-слой). */
+        try {
+            Intent si = new Intent(ctx, NotifSpeakerService.class);
+            si.putExtra("title", title);
+            si.putExtra("text", text);
+            if (Build.VERSION.SDK_INT >= 26) {
+                ctx.startForegroundService(si);
+            } else {
+                ctx.startService(si);
+            }
+        } catch (Exception ignored) { /* без озвучки — но уведомление уже показано */ }
     }
 
     /* ---------- Помощники уведомлений (использует и MainActivity) ---------- */
