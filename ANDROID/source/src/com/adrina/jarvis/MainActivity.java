@@ -147,6 +147,40 @@ public class MainActivity extends Activity {
         // Проверка обновлений — при каждом запуске приложения (в фоне,
         // не тормозит старт; если вышла новая версия — предложим скачать)
         checkForAppUpdate();
+        maybeAskNotifAccess(); /* v1.7: доступ к уведомлениям — чтение чужих вслух */
+    }
+
+    /* ==================== ДОСТУП К УВЕДОМЛЕНИЯМ (v1.7) ==================== */
+
+    /**
+     * Если доступ к уведомлениям ещё не выдан — один раз показываем диалог:
+     * без него NotifListenerService не получит сообщения из мессенджеров.
+     * Просим мягко: пока пользователь не согласится, больше не спрашиваем
+     * (повторить можно командой «статус уведомлений»).
+     */
+    private void maybeAskNotifAccess() {
+        if (NotifListenerService.listenerEnabled(this)) return;
+        if (prefs.getBoolean("notif_access_asked", false)) return;
+        try {
+            new AlertDialog.Builder(this)
+                    .setTitle("Доступ к уведомлениям")
+                    .setMessage("Чтобы я читал вслух сообщения из мессенджеров "
+                            + "(Telegram, WhatsApp и другие), выдай мне доступ "
+                            + "к уведомлениям.\n\nОткрою нужный экран — найди в списке "
+                            + "J.A.R.V.I.S. и включи тумблер.")
+                    .setPositiveButton("Открыть настройки", new android.content.DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(android.content.DialogInterface d, int w) {
+                            try {
+                                startActivity(new Intent(
+                                        android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+                            } catch (Exception ignored) { }
+                        }
+                    })
+                    .setNegativeButton("Позже", null)
+                    .show();
+            prefs.edit().putBoolean("notif_access_asked", true).apply();
+        } catch (Exception ignored) { }
     }
 
     /* ==================== ГЕРЦОВКА ДО 120 Гц (v1.6) ==================== */
@@ -191,7 +225,7 @@ public class MainActivity extends Activity {
 
     /* ==================== ПРОВЕРКА ОБНОВЛЕНИЙ (v1.3) ==================== */
 
-    private static final String APP_VERSION = "1.6";
+    private static final String APP_VERSION = "1.7";
     private static final String VERSION_URL =
             "https://raw.githubusercontent.com/AdrinaLiness/jarvis/main/VERSION.json";
     private boolean updateDialogShown = false;
@@ -972,6 +1006,29 @@ public class MainActivity extends Activity {
             }
             case "sms_list": {
                 return doSmsList();
+            }
+            /* ============ ЧТЕНИЕ УВЕДОМЛЕНИЙ ВСЛУХ (v1.7) ============ */
+            case "notif_toggle": {
+                boolean cur = prefs.getBoolean("notif_speak", true);
+                boolean nv;
+                if (a0.trim().isEmpty()) {
+                    nv = !cur;
+                } else {
+                    String s = a0.trim().toLowerCase(Locale.ROOT);
+                    nv = s.matches("вкл\\w*|on|true|1|да");
+                }
+                prefs.edit().putBoolean("notif_speak", nv).apply();
+                return jsonOk(nv ? "Чтение уведомлений вслух включено, сэр"
+                        : "Чтение уведомлений вслух выключено, сэр");
+            }
+            case "notif_status": {
+                boolean access = NotifListenerService.listenerEnabled(this);
+                boolean speak = prefs.getBoolean("notif_speak", true);
+                String st = "Чтение уведомлений вслух: "
+                        + (speak ? "ВКЛЮЧЕНО" : "выключено")
+                        + " · доступ к уведомлениям: "
+                        + (access ? "выдан" : "НЕТ — открой Настройки → Специальные возможности → Доступ к уведомлениям и включи J.A.R.V.I.S.");
+                return jsonOk(st);
             }
             /* ПК-команды удалены (v1.4): в приложении для телефона
                осталось только то, что работает на самом телефоне */
