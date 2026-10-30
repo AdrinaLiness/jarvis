@@ -1,5 +1,7 @@
 #!/bin/bash
 # Сборка J.A.R.V.I.S. Android APK (без Gradle — aapt2 + d8 + apksigner)
+# v1.7: чтение чужих уведомлений вслух (NotifListenerService, доступ к уведомлениям)
+#       + озвучка напоминаний в фоне (NotifSpeakerService), не теряется после смерти приложения
 # v1.6: герцовка до 120 Гц — реактор/анимации без лагов (preferredDisplayModeId)
 # v1.5: смс/мессенджеры/звонки — SmsManager, deep links, контакты, TTS в фоне
 # v1.4: только телефон — запуск ВСЕХ приложений на телефоне, ПК-команды удалены
@@ -31,7 +33,7 @@ echo "[1/6] aapt2 compile + link (+ R.java)..."
   -A "$PROJ/assets" \
   --java "$OUT/gen" \
   --min-sdk-version 24 --target-sdk-version 34 \
-  --version-code 7 --version-name 1.6 --replace-version \
+  --version-code 8 --version-name 1.7 --replace-version \
   --auto-add-overlay \
   "$OUT/res.zip"
 ls "$OUT/gen/com/adrina/jarvis/" 2>/dev/null
@@ -62,8 +64,8 @@ if [ ! -f "$KS" ]; then
     -dname "CN=JARVIS, OU=AdrinaLiness, O=AdrinaLiness, C=RU" >/dev/null 2>&1
 fi
 "$BT/apksigner" sign --ks "$KS" --ks-pass pass:jarvis2026 \
-  --out "$PROJ/JARVIS-v1.6.apk" "$OUT/jarvis-aligned.apk"
-"$BT/apksigner" verify "$PROJ/JARVIS-v1.6.apk" && echo "APK OK"
+  --out "$PROJ/JARVIS-v1.7.apk" "$OUT/jarvis-aligned.apk"
+"$BT/apksigner" verify "$PROJ/JARVIS-v1.7.apk" && echo "APK OK"
 
-ls -la "$PROJ/JARVIS-v1.6.apk"
-"$BT/aapt2" dump badging "$PROJ/JARVIS-v1.6.apk" | head -8
+ls -la "$PROJ/JARVIS-v1.7.apk"
+"$BT/aapt2" dump badging "$PROJ/JARVIS-v1.7.apk" | head -8
