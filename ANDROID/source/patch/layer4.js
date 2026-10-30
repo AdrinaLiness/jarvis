@@ -77,15 +77,13 @@ try{
   );
 }catch(e){}
 
-/* ---------- 2. Сработавшее напоминание (натив → лог + голос) ---------- */
+/* ---------- 2. Сработавшее напоминание (натив → лог; озвучку делает
+   фоновый NotifSpeakerService с v1.7 — она работает даже когда
+   приложение свёрнуто или убито, поэтому тут только лог) ---------- */
 window.__jarvisNotifFired=function(id,title,text){
   try{
-    var isTimer=/ТАЙМЕР/i.test(String(title||''));
     var msg=String(text||'')||'Напоминание, сэр';
     addLog('jarvis','⏰ '+msg);
-    if(isTimer) speak(msg);
-    else if(msg!=='Напоминание, сэр') speak('Сэр, напоминание: '+msg);
-    else speak('Сэр, напоминание.');
   }catch(e){}
 };
 
